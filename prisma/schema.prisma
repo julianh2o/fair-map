@@ -7,3 +7,26 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+model Layer {
+  id        String   @id @default(uuid())
+  name      String
+  color     String   @default("#FF5733")
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  markers   Marker[]
+}
+
+model Marker {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  photo       String?
+  latitude    Float
+  longitude   Float
+  layerId     String
+  layer       Layer    @relation(fields: [layerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

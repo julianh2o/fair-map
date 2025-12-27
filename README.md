@@ -1,4 +1,6 @@
-# unEventful
+# fair-map
 
-* Tracking volunteer positions and using it to determine invite privileges 
-* Invitation management sending (viral invitations and sponsors)
+TODO:
+* add location services to show your current location
+* add image upload feature (with automatic geotag placement)
+* move satellite layer to image layers panel and make it toggleable

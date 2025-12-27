@@ -36,13 +36,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 						minHeight: '100vh',
 						p: 3,
 					}}>
-					<Typography variant="h4" gutterBottom>
+					<Typography variant='h4' gutterBottom>
 						Something went wrong
 					</Typography>
-					<Typography variant="body1" color="text.secondary" gutterBottom>
+					<Typography variant='body1' color='text.secondary' gutterBottom>
 						{this.state.error?.message || 'An unexpected error occurred'}
 					</Typography>
-					<Button variant="contained" onClick={() => window.location.reload()} sx={{ mt: 2 }}>
+					<Button variant='contained' onClick={() => window.location.reload()} sx={{ mt: 2 }}>
 						Reload Page
 					</Button>
 				</Box>

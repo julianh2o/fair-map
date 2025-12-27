@@ -8,7 +8,7 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
 	return (
 		<Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-			<Container component="main" sx={{ flex: 1, py: 4 }}>
+			<Container component='main' sx={{ flex: 1, py: 4 }}>
 				{children}
 			</Container>
 		</Box>
