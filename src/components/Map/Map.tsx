@@ -10,13 +10,12 @@ import ImageStatic from 'ol/source/ImageStatic';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
+import CircleGeom from 'ol/geom/Circle';
 import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { getCenter } from 'ol/extent';
 import 'ol/ol.css';
 import './Map.css';
-
-export type LayerType = 'street' | 'satellite';
 
 export interface ImageOverlay {
 	id: string;
@@ -46,56 +45,70 @@ export interface MapMarker {
 	};
 }
 
+export interface UserLocation {
+	latitude: number;
+	longitude: number;
+	accuracy?: number;
+}
+
 interface MapComponentProps {
 	center?: [number, number];
 	zoom?: number;
-	layerType?: LayerType;
+	satelliteVisible?: boolean;
 	overlayConfig?: OverlayConfig;
 	imageOverlays?: ImageOverlay[];
 	markers?: MapMarker[];
+	userLocation?: UserLocation | null;
+	showUserLocation?: boolean;
 	onLongPress?: (longitude: number, latitude: number) => void;
 }
 
 export const MapComponent = ({
 	center = [0, 0],
 	zoom = 2,
-	layerType = 'street',
+	satelliteVisible = true,
 	overlayConfig,
 	imageOverlays = [],
 	markers = [],
+	userLocation,
+	showUserLocation = false,
 	onLongPress,
 }: MapComponentProps) => {
 	// eslint-disable-next-line no-undef
 	const mapRef = useRef<HTMLDivElement>(null);
 	const mapInstanceRef = useRef<Map | null>(null);
-	const layerRef = useRef<TileLayer<OSM | XYZ> | null>(null);
+	const streetLayerRef = useRef<TileLayer<OSM> | null>(null);
+	const satelliteLayerRef = useRef<TileLayer<XYZ> | null>(null);
 	// eslint-disable-next-line no-undef
 	const imageOverlayLayersRef = useRef(new globalThis.Map<string, ImageLayer<ImageStatic>>());
 	const markersLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+	const userLocationLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const longPressPositionRef = useRef<number[] | null>(null);
 
 	useEffect(() => {
 		if (!mapRef.current) return;
 
-		const createLayer = (type: LayerType) => {
-			if (type === 'satellite') {
-				return new TileLayer({
-					source: new XYZ({
-						url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-						maxZoom: 19,
-					}),
-				});
-			}
-			return new TileLayer({
-				source: new OSM(),
-			});
-		};
+		// Create street base layer (always visible)
+		const streetLayer = new TileLayer({
+			source: new OSM(),
+		});
+		streetLayerRef.current = streetLayer;
 
-		const layer = createLayer(layerType);
-		layerRef.current = layer;
+		// Create satellite layer (toggleable)
+		const satelliteLayer = new TileLayer({
+			source: new XYZ({
+				url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+				maxZoom: 19,
+			}),
+			visible: satelliteVisible,
+		});
+		satelliteLayerRef.current = satelliteLayer;
 
-		const layers: Array<TileLayer<OSM | XYZ> | ImageLayer<ImageStatic> | VectorLayer<VectorSource>> = [layer];
+		const layers: Array<TileLayer<OSM | XYZ> | ImageLayer<ImageStatic> | VectorLayer<VectorSource>> = [
+			streetLayer,
+			satelliteLayer,
+		];
 
 		// Add image overlays
 		imageOverlayLayersRef.current.clear();
@@ -151,6 +164,32 @@ export const MapComponent = ({
 
 		markersLayerRef.current = markersLayer;
 		layers.push(markersLayer);
+
+		// Create user location layer
+		const userLocationSource = new VectorSource();
+		const userLocationLayer = new VectorLayer({
+			source: userLocationSource,
+			style: (feature) => {
+				const featureType = feature.get('type');
+				if (featureType === 'accuracy') {
+					return new Style({
+						stroke: new Stroke({ color: '#4285F4', width: 1 }),
+						fill: new Fill({ color: 'rgba(66, 133, 244, 0.2)' }),
+					});
+				}
+				// Position dot
+				return new Style({
+					image: new Circle({
+						radius: 10,
+						fill: new Fill({ color: '#4285F4' }),
+						stroke: new Stroke({ color: '#fff', width: 3 }),
+					}),
+				});
+			},
+		});
+
+		userLocationLayerRef.current = userLocationLayer;
+		layers.push(userLocationLayer);
 
 		const view = new View({
 			center: fromLonLat(center),
@@ -257,7 +296,14 @@ export const MapComponent = ({
 			}
 			map.setTarget(undefined);
 		};
-	}, [center, zoom, layerType, onLongPress]);
+	}, [center, zoom, onLongPress]);
+
+	// Handle satellite visibility changes
+	useEffect(() => {
+		if (satelliteLayerRef.current) {
+			satelliteLayerRef.current.setVisible(satelliteVisible);
+		}
+	}, [satelliteVisible]);
 
 	useEffect(() => {
 		imageOverlays.forEach((overlay) => {
@@ -291,6 +337,40 @@ export const MapComponent = ({
 
 		source.addFeatures(features);
 	}, [markers]);
+
+	useEffect(() => {
+		if (!userLocationLayerRef.current) return;
+
+		const source = userLocationLayerRef.current.getSource();
+		if (!source) return;
+
+		source.clear();
+
+		if (showUserLocation && userLocation) {
+			const features: Feature[] = [];
+
+			// Add accuracy circle if accuracy is available
+			if (userLocation.accuracy && userLocation.accuracy > 0) {
+				const accuracyFeature = new Feature({
+					geometry: new CircleGeom(
+						fromLonLat([userLocation.longitude, userLocation.latitude]),
+						userLocation.accuracy,
+					),
+				});
+				accuracyFeature.set('type', 'accuracy');
+				features.push(accuracyFeature);
+			}
+
+			// Add position dot
+			const positionFeature = new Feature({
+				geometry: new Point(fromLonLat([userLocation.longitude, userLocation.latitude])),
+			});
+			positionFeature.set('type', 'position');
+			features.push(positionFeature);
+
+			source.addFeatures(features);
+		}
+	}, [userLocation, showUserLocation]);
 
 	useEffect(() => {
 		if (!overlayConfig || !mapInstanceRef.current) return;

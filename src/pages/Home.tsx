@@ -4,16 +4,17 @@ import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { fromLonLat, toLonLat } from 'ol/proj';
 
 import { APP_TITLE, PAGE_TITLE_HOME } from '../utils/constants';
-import { MapComponent, LayerType, OverlayConfig, MapMarker, ImageOverlay } from '../components/Map';
+import { MapComponent, OverlayConfig, MapMarker, ImageOverlay, UserLocation } from '../components/Map';
 import { BottomToolbar } from '../components/BottomToolbar';
 import { OverlayControls } from '../components/OverlayControls';
 import { MarkerDialog, MarkerData } from '../components/MarkerDialog';
 import { LayerManager } from '../components/LayerManager';
 import { layersApi, markersApi, Layer, Marker } from '../services/api';
+import { useGeolocation } from '../hooks';
 
 export const Home = () => {
 	const [center, setCenter] = useState<[number, number] | null>(null);
-	const [layerType, setLayerType] = useState<LayerType>('street');
+	const [satelliteVisible, setSatelliteVisible] = useState(true);
 	const [showOverlayControls, setShowOverlayControls] = useState(false);
 	const [overlayConfig, setOverlayConfig] = useState<OverlayConfig | null>(null);
 	const [imageOverlays, setImageOverlays] = useState<ImageOverlay[]>([]);
@@ -23,6 +24,12 @@ export const Home = () => {
 	const [markerPosition, setMarkerPosition] = useState<{ lat: number; lon: number } | null>(null);
 	const [showLayerManager, setShowLayerManager] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Geolocation
+	const { position, error: locationError, loading: locationLoading } = useGeolocation();
+	const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+	const [showUserLocation, setShowUserLocation] = useState(false);
+	const [trackingEnabled, setTrackingEnabled] = useState(false);
 
 	useEffect(() => {
 		const loadLocation = () => {
@@ -106,9 +113,43 @@ export const Home = () => {
 		};
 	}, []);
 
-	const handleToggleLayer = useCallback(() => {
-		setLayerType((prev: LayerType) => (prev === 'street' ? 'satellite' : 'street'));
-	}, []);
+	// Convert geolocation position to UserLocation format
+	useEffect(() => {
+		if (position) {
+			setUserLocation({
+				latitude: position.coords.latitude,
+				longitude: position.coords.longitude,
+				accuracy: position.coords.accuracy,
+			});
+		}
+	}, [position]);
+
+	// Handle geolocation errors
+	useEffect(() => {
+		if (locationError) {
+			let message = 'Location error occurred';
+			switch (locationError.code) {
+				case 1:
+					message = 'Location permission denied. Enable in browser settings.';
+					break;
+				case 2:
+					message = 'Location unavailable. Check GPS/wifi.';
+					break;
+				case 3:
+					message = 'Location request timed out. Try again.';
+					break;
+			}
+			setError(message);
+		}
+	}, [locationError]);
+
+	// Center on first location when tracking is enabled
+	useEffect(() => {
+		if (position && trackingEnabled) {
+			setCenter([position.coords.longitude, position.coords.latitude]);
+			setTrackingEnabled(false);
+		}
+	}, [position, trackingEnabled]);
 
 	const handleLongPress = useCallback((longitude: number, latitude: number) => {
 		setMarkerPosition({ lat: latitude, lon: longitude });
@@ -160,10 +201,21 @@ export const Home = () => {
 
 	const handleImageOverlayToggle = useCallback(
 		(id: string) => {
+			// Handle satellite layer toggle
+			if (id === 'satellite') {
+				setSatelliteVisible((prev) => !prev);
+				return;
+			}
+			// Handle regular image overlays
 			setImageOverlays(imageOverlays.map((overlay) => (overlay.id === id ? { ...overlay, visible: !overlay.visible } : overlay)));
 		},
 		[imageOverlays],
 	);
+
+	const handleLocationClick = useCallback(() => {
+		setShowUserLocation(true);
+		setTrackingEnabled(true);
+	}, []);
 
 	// Compute markers with updated layer visibility
 	const markersWithUpdatedLayers = useMemo(() => {
@@ -215,16 +267,18 @@ export const Home = () => {
 				<MapComponent
 					center={center}
 					zoom={20}
-					layerType={layerType}
+					satelliteVisible={satelliteVisible}
 					overlayConfig={overlayConfig}
 					imageOverlays={imageOverlays}
 					markers={markersWithUpdatedLayers as MapMarker[]}
+					userLocation={userLocation}
+					showUserLocation={showUserLocation}
 					onLongPress={handleLongPress}
 				/>
 				<BottomToolbar
-					onToggleLayer={handleToggleLayer}
-					currentLayer={layerType}
 					onOpenLayerManager={() => setShowLayerManager(true)}
+					onLocationClick={handleLocationClick}
+					locationLoading={locationLoading}
 				/>
 				{showOverlayControls && (
 					<OverlayControls
@@ -239,6 +293,7 @@ export const Home = () => {
 					<LayerManager
 						layers={layers}
 						imageOverlays={imageOverlays}
+						satelliteVisible={satelliteVisible}
 						onToggleVisibility={handleToggleLayerVisibility}
 						onImageOverlayToggle={handleImageOverlayToggle}
 						onAddLayer={handleAddLayer}

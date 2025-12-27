@@ -1,14 +1,13 @@
-import { Paper, IconButton, Box } from '@mui/material';
-import { MyLocation, Layers, Satellite, Map } from '@mui/icons-material';
-import { LayerType } from '../Map/Map';
+import { Paper, IconButton, Box, CircularProgress } from '@mui/material';
+import { MyLocation, Layers } from '@mui/icons-material';
 
 interface BottomToolbarProps {
-	onToggleLayer: () => void;
-	currentLayer: LayerType;
 	onOpenLayerManager: () => void;
+	onLocationClick: () => void;
+	locationLoading?: boolean;
 }
 
-export const BottomToolbar = ({ onToggleLayer, currentLayer, onOpenLayerManager }: BottomToolbarProps) => {
+export const BottomToolbar = ({ onOpenLayerManager, onLocationClick, locationLoading = false }: BottomToolbarProps) => {
 	return (
 		<Paper
 			elevation={8}
@@ -45,24 +44,15 @@ export const BottomToolbar = ({ onToggleLayer, currentLayer, onOpenLayerManager 
 				</IconButton>
 				<IconButton
 					color='primary'
-					aria-label={currentLayer === 'street' ? 'switch to satellite' : 'switch to street'}
-					onClick={onToggleLayer}
-					sx={{
-						'&:active': {
-							transform: 'scale(0.95)',
-						},
-					}}>
-					{currentLayer === 'street' ? <Satellite /> : <Map />}
-				</IconButton>
-				<IconButton
-					color='primary'
 					aria-label='my location'
+					onClick={onLocationClick}
+					disabled={locationLoading}
 					sx={{
 						'&:active': {
 							transform: 'scale(0.95)',
 						},
 					}}>
-					<MyLocation />
+					{locationLoading ? <CircularProgress size={24} /> : <MyLocation />}
 				</IconButton>
 			</Box>
 		</Paper>

@@ -28,7 +28,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "concurrently -n client,server -c blue,green \"yarn dev:client\" \"yarn dev:server\"",
-    "dev:client": "PORT=2998 react-scripts start",
+    "dev:client": "HOST=0.0.0.0 PORT=2998 react-scripts start",
     "dev:server": "prisma migrate dev && NODE_ENV=development nodemon --watch server --ext ts --watch prisma/schema.prisma --exec 'tsx server/index.ts'",
     "build": "BUILD_PATH=build/public react-scripts build",
     "build:server": "prisma generate && tsc --project server/tsconfig.json && mkdir -p build && cp -r src/config build/",

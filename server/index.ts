@@ -37,8 +37,8 @@ if (
 	process.argv[1]?.includes('build/index')
 ) {
 	console.log('[DEBUG] Starting server...');
-	app.listen(config.port, async () => {
-		console.log(`Server running on http://localhost:${config.port}`);
+	app.listen(config.port, config.host, async () => {
+		console.log(`Server running on http://${config.host}:${config.port}`);
 
 		// Test database connection
 		try {

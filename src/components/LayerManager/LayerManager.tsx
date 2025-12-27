@@ -39,6 +39,7 @@ interface ImageOverlay {
 interface LayerManagerProps {
 	layers: Layer[];
 	imageOverlays: ImageOverlay[];
+	satelliteVisible: boolean;
 	onToggleVisibility: (id: string, visible: boolean) => void;
 	onImageOverlayToggle: (id: string) => void;
 	onAddLayer: (name: string, color: string) => void;
@@ -49,6 +50,7 @@ interface LayerManagerProps {
 export const LayerManager = ({
 	layers,
 	imageOverlays,
+	satelliteVisible,
 	onToggleVisibility,
 	onImageOverlayToggle,
 	onAddLayer,
@@ -95,6 +97,17 @@ export const LayerManager = ({
 					Image Layers
 				</Typography>
 				<List dense>
+					{/* Satellite layer */}
+					<ListItem
+						key='satellite'
+						secondaryAction={
+							<Switch edge='end' checked={satelliteVisible} onChange={() => onImageOverlayToggle('satellite')} size='small' />
+						}>
+						<ListItemIcon>
+							<Image />
+						</ListItemIcon>
+						<ListItemText primary='Satellite' />
+					</ListItem>
 					{imageOverlays.map((overlay) => (
 						<ListItem
 							key={overlay.id}

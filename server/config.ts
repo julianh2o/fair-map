@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 interface Config {
 	port: number;
+	host: string;
 	nodeEnv: 'development' | 'production' | 'test';
 	isProduction: boolean;
 	isDevelopment: boolean;
@@ -28,6 +29,7 @@ function createConfig(): Config {
 
 	return {
 		port: parseInt(getOptionalEnv('PORT', '2999'), 10),
+		host: getOptionalEnv('HOST', '0.0.0.0'),
 		nodeEnv,
 		isProduction: nodeEnv === 'production',
 		isDevelopment: nodeEnv === 'development',
