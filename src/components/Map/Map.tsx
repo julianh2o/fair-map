@@ -39,6 +39,7 @@ export interface MapMarker {
 	name: string;
 	latitude: number;
 	longitude: number;
+	photo?: string;
 	layer?: {
 		color: string;
 		visible: boolean;
@@ -131,6 +132,11 @@ export const MapComponent = ({
 			style: (feature) => {
 				const color = feature.get('color') || '#FF5733';
 				const name = feature.get('name') || '';
+				const hasPhoto = feature.get('hasPhoto') || false;
+
+				// Show camera icon if marker has photo but no name
+				const displayText = !name && hasPhoto ? '📷' : name;
+
 				return new Style({
 					image: new Circle({
 						radius: 8,
@@ -138,7 +144,7 @@ export const MapComponent = ({
 						stroke: new Stroke({ color: '#fff', width: 2 }),
 					}),
 					text: new Text({
-						text: name,
+						text: displayText,
 						offsetY: -15,
 						fill: new Fill({ color: '#fff' }),
 						stroke: new Stroke({ color: '#000', width: 3 }),
@@ -158,6 +164,7 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
+				feature.set('hasPhoto', !!marker.photo);
 				return feature;
 			});
 		markersSource.addFeatures(features);
@@ -332,6 +339,7 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
+				feature.set('hasPhoto', !!marker.photo);
 				return feature;
 			});
 
@@ -352,10 +360,7 @@ export const MapComponent = ({
 			// Add accuracy circle if accuracy is available
 			if (userLocation.accuracy && userLocation.accuracy > 0) {
 				const accuracyFeature = new Feature({
-					geometry: new CircleGeom(
-						fromLonLat([userLocation.longitude, userLocation.latitude]),
-						userLocation.accuracy,
-					),
+					geometry: new CircleGeom(fromLonLat([userLocation.longitude, userLocation.latitude]), userLocation.accuracy),
 				});
 				accuracyFeature.set('type', 'accuracy');
 				features.push(accuracyFeature);

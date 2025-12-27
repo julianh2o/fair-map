@@ -21,12 +21,13 @@ router.get('/', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
 	try {
 		const { name, description, photo, latitude, longitude, layerId } = req.body;
-		if (!name || latitude === undefined || longitude === undefined || !layerId) {
-			res.status(400).json({ error: 'Name, latitude, longitude, and layerId are required' });
+		// Name is required unless photo is provided
+		if ((!name && !photo) || latitude === undefined || longitude === undefined || !layerId) {
+			res.status(400).json({ error: 'Name or photo, latitude, longitude, and layerId are required' });
 			return;
 		}
 		const marker = await prisma.marker.create({
-			data: { name, description, photo, latitude, longitude, layerId },
+			data: { name: name || '', description, photo, latitude, longitude, layerId },
 			include: { layer: true },
 		});
 		res.status(201).json(marker);

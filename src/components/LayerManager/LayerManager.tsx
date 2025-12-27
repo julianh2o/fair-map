@@ -16,7 +16,7 @@ import {
 	DialogActions,
 	TextField,
 } from '@mui/material';
-import { Close, Add, Delete, Circle, Image } from '@mui/icons-material';
+import { Close, Add, Delete, Circle, Image, CloudUpload } from '@mui/icons-material';
 
 interface Layer {
 	id: string;
@@ -44,6 +44,7 @@ interface LayerManagerProps {
 	onImageOverlayToggle: (id: string) => void;
 	onAddLayer: (name: string, color: string) => void;
 	onDeleteLayer: (id: string) => void;
+	onUploadImages: () => void;
 	onClose: () => void;
 }
 
@@ -55,6 +56,7 @@ export const LayerManager = ({
 	onImageOverlayToggle,
 	onAddLayer,
 	onDeleteLayer,
+	onUploadImages,
 	onClose,
 }: LayerManagerProps) => {
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -101,7 +103,12 @@ export const LayerManager = ({
 					<ListItem
 						key='satellite'
 						secondaryAction={
-							<Switch edge='end' checked={satelliteVisible} onChange={() => onImageOverlayToggle('satellite')} size='small' />
+							<Switch
+								edge='end'
+								checked={satelliteVisible}
+								onChange={() => onImageOverlayToggle('satellite')}
+								size='small'
+							/>
 						}>
 						<ListItemIcon>
 							<Image />
@@ -112,7 +119,12 @@ export const LayerManager = ({
 						<ListItem
 							key={overlay.id}
 							secondaryAction={
-								<Switch edge='end' checked={overlay.visible} onChange={() => onImageOverlayToggle(overlay.id)} size='small' />
+								<Switch
+									edge='end'
+									checked={overlay.visible}
+									onChange={() => onImageOverlayToggle(overlay.id)}
+									size='small'
+								/>
 							}>
 							<ListItemIcon>
 								<Image />
@@ -153,9 +165,14 @@ export const LayerManager = ({
 					))}
 				</List>
 
-				<Button variant='contained' startIcon={<Add />} fullWidth onClick={() => setAddDialogOpen(true)} sx={{ mt: 2 }}>
-					Add Marker Layer
-				</Button>
+				<Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+					<Button variant='contained' startIcon={<Add />} fullWidth onClick={() => setAddDialogOpen(true)}>
+						Add Marker Layer
+					</Button>
+					<Button variant='outlined' startIcon={<CloudUpload />} fullWidth onClick={onUploadImages}>
+						Upload Geotagged Images
+					</Button>
+				</Box>
 			</Paper>
 
 			<Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth='xs' fullWidth>

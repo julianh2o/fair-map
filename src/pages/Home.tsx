@@ -9,6 +9,7 @@ import { BottomToolbar } from '../components/BottomToolbar';
 import { OverlayControls } from '../components/OverlayControls';
 import { MarkerDialog, MarkerData } from '../components/MarkerDialog';
 import { LayerManager } from '../components/LayerManager';
+import { ImageUpload } from '../components/ImageUpload';
 import { layersApi, markersApi, Layer, Marker } from '../services/api';
 import { useGeolocation } from '../hooks';
 
@@ -23,6 +24,7 @@ export const Home = () => {
 	const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
 	const [markerPosition, setMarkerPosition] = useState<{ lat: number; lon: number } | null>(null);
 	const [showLayerManager, setShowLayerManager] = useState(true);
+	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	// Geolocation
@@ -207,7 +209,9 @@ export const Home = () => {
 				return;
 			}
 			// Handle regular image overlays
-			setImageOverlays(imageOverlays.map((overlay) => (overlay.id === id ? { ...overlay, visible: !overlay.visible } : overlay)));
+			setImageOverlays(
+				imageOverlays.map((overlay) => (overlay.id === id ? { ...overlay, visible: !overlay.visible } : overlay)),
+			);
 		},
 		[imageOverlays],
 	);
@@ -215,6 +219,21 @@ export const Home = () => {
 	const handleLocationClick = useCallback(() => {
 		setShowUserLocation(true);
 		setTrackingEnabled(true);
+	}, []);
+
+	const handleUploadImages = useCallback(() => {
+		setShowImageUpload(true);
+	}, []);
+
+	const handleUploadComplete = useCallback(async (count: number) => {
+		// Refresh markers after upload
+		try {
+			const markersData = await markersApi.getAll();
+			setMarkers(markersData);
+			setError(`Successfully uploaded ${count} image${count !== 1 ? 's' : ''}!`);
+		} catch (err) {
+			console.error('Error refreshing markers:', err);
+		}
 	}, []);
 
 	// Compute markers with updated layer visibility
@@ -298,9 +317,16 @@ export const Home = () => {
 						onImageOverlayToggle={handleImageOverlayToggle}
 						onAddLayer={handleAddLayer}
 						onDeleteLayer={handleDeleteLayer}
+						onUploadImages={handleUploadImages}
 						onClose={() => setShowLayerManager(false)}
 					/>
 				)}
+				<ImageUpload
+					open={showImageUpload}
+					onClose={() => setShowImageUpload(false)}
+					onUploadComplete={handleUploadComplete}
+					defaultLayerId={layers[0]?.id || ''}
+				/>
 				{markerPosition && (
 					<MarkerDialog
 						open={markerDialogOpen}

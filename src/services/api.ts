@@ -1,7 +1,6 @@
 // In dev mode (localhost), use explicit localhost:2999
 // In production, use relative path /api (same origin)
-const isDev =
-	window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const API_BASE = isDev ? 'http://localhost:2999/api' : '/api';
 
 export interface Layer {
