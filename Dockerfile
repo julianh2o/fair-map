@@ -11,19 +11,19 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock .yarnrc ./
 
-# Install dependencies
+# Copy Prisma schema and config BEFORE installing dependencies
+# (needed for postinstall script that runs prisma generate)
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Set dummy DATABASE_URL for build (needed by prisma generate in postinstall)
+ENV DATABASE_URL="file:./data/db.db"
+
+# Install dependencies (this will run prisma generate via postinstall)
 RUN yarn install --frozen-lockfile
 
 # Copy source code
 COPY . .
-
-# Copy Prisma schema and config
-COPY prisma ./prisma
-COPY prisma.config.ts ./
-
-# Generate Prisma Client (set dummy DATABASE_URL for build)
-ENV DATABASE_URL="file:./data/uneventful.db"
-RUN npx prisma generate
 
 # Build the server first (compile TypeScript to JavaScript -> build/)
 RUN yarn build:server
@@ -43,14 +43,12 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 # OCI standard labels
-LABEL org.opencontainers.image.title="uneventful"
-LABEL org.opencontainers.image.description="Event management application with form-driven workflows and automated SMS reminders"
+LABEL org.opencontainers.image.title="fair-map"
+LABEL org.opencontainers.image.description="Fair map application"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.authors="Julian Hartline <https://www.julianhartline.com>"
-LABEL org.opencontainers.image.url="https://hub.docker.com/repository/docker/julianh2o/uneventful"
-LABEL org.opencontainers.image.source="https://github.com/julianh2o/uneventful"
 
 # Install OpenSSL for Prisma
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
@@ -60,20 +58,20 @@ WORKDIR /app
 # Copy package files
 COPY package.json yarn.lock .yarnrc ./
 
-# Install production dependencies only
-RUN yarn install --frozen-lockfile --production && \
-    yarn cache clean
-
-# Copy Prisma schema, config, and migrations
+# Copy Prisma schema, config, and migrations BEFORE installing dependencies
 COPY prisma ./prisma
 COPY prisma.config.ts ./
+
+# Set dummy DATABASE_URL for runtime (needed by prisma generate in postinstall)
+ENV DATABASE_URL="file:./data/db.db"
+
+# Install production dependencies only (this will run prisma generate via postinstall)
+RUN yarn install --frozen-lockfile --production && \
+    yarn cache clean
 
 # Copy generated Prisma Client from builder stage
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-
-# Set dummy DATABASE_URL for runtime
-ENV DATABASE_URL="file:./data/uneventful.db"
 
 # Copy entire build directory from builder stage
 # This contains: compiled server code, frontend (in public/), and config files
