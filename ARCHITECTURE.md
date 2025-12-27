@@ -78,8 +78,12 @@ TWILIO_ACCOUNT_SID=...      # Optional: For SMS functionality
 TWILIO_AUTH_TOKEN=...       # Optional: For SMS functionality
 TWILIO_PHONE_NUMBER=...     # Optional: For SMS functionality
 JWT_SECRET=...              # Optional: For JWT authentication
-APP_BASE_URL=...            # Optional: Base URL for your app
 ```
+
+**API Configuration:**
+The frontend automatically detects whether it's running in development or production mode:
+- **Development** (localhost): API calls go to `http://localhost:2999/api`
+- **Production**: API calls use relative path `/api` (same origin as frontend)
 
 ## Key Files
 
