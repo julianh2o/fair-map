@@ -5,7 +5,6 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 
 import { APP_TITLE, PAGE_TITLE_HOME } from '../utils/constants';
 import { MapComponent, OverlayConfig, MapMarker, ImageOverlay, UserLocation } from '../components/Map';
-import { BottomToolbar } from '../components/BottomToolbar';
 import { OverlayControls } from '../components/OverlayControls';
 import { MarkerDialog, MarkerData } from '../components/MarkerDialog';
 import { LayerManager } from '../components/LayerManager';
@@ -23,7 +22,7 @@ export const Home = () => {
 	const [markers, setMarkers] = useState<Marker[]>([]);
 	const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
 	const [markerPosition, setMarkerPosition] = useState<{ lat: number; lon: number } | null>(null);
-	const [showLayerManager, setShowLayerManager] = useState(true);
+	const [isLayerManagerOpen, setIsLayerManagerOpen] = useState(true);
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -294,11 +293,6 @@ export const Home = () => {
 					showUserLocation={showUserLocation}
 					onLongPress={handleLongPress}
 				/>
-				<BottomToolbar
-					onOpenLayerManager={() => setShowLayerManager(true)}
-					onLocationClick={handleLocationClick}
-					locationLoading={locationLoading}
-				/>
 				{showOverlayControls && (
 					<OverlayControls
 						config={overlayConfig}
@@ -308,19 +302,20 @@ export const Home = () => {
 						onClose={() => setShowOverlayControls(false)}
 					/>
 				)}
-				{showLayerManager && (
-					<LayerManager
-						layers={layers}
-						imageOverlays={imageOverlays}
-						satelliteVisible={satelliteVisible}
-						onToggleVisibility={handleToggleLayerVisibility}
-						onImageOverlayToggle={handleImageOverlayToggle}
-						onAddLayer={handleAddLayer}
-						onDeleteLayer={handleDeleteLayer}
-						onUploadImages={handleUploadImages}
-						onClose={() => setShowLayerManager(false)}
-					/>
-				)}
+				<LayerManager
+					layers={layers}
+					imageOverlays={imageOverlays}
+					satelliteVisible={satelliteVisible}
+					onToggleVisibility={handleToggleLayerVisibility}
+					onImageOverlayToggle={handleImageOverlayToggle}
+					onAddLayer={handleAddLayer}
+					onDeleteLayer={handleDeleteLayer}
+					onUploadImages={handleUploadImages}
+					onLocationClick={handleLocationClick}
+					locationLoading={locationLoading}
+					isOpen={isLayerManagerOpen}
+					onToggleOpen={() => setIsLayerManagerOpen(!isLayerManagerOpen)}
+				/>
 				<ImageUpload
 					open={showImageUpload}
 					onClose={() => setShowImageUpload(false)}
