@@ -37,8 +37,9 @@ fi
 BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 VCS_REF=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-echo -e "${GREEN}Building Docker image...${NC}"
+echo -e "${GREEN}Building Docker image for linux/arm64...${NC}"
 docker build \
+    --platform linux/arm64 \
     --build-arg VERSION="${VERSION}" \
     --build-arg BUILD_DATE="${BUILD_DATE}" \
     --build-arg VCS_REF="${VCS_REF}" \

@@ -11,6 +11,7 @@
     "url": "https://github.com/julianh2o/fair-map"
   },
   "dependencies": {
+    "@prisma/adapter-libsql": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "app-root-path": "^3.1.0",
     "cors": "^2.8.5",
