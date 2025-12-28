@@ -46,7 +46,10 @@ interface MarkerDetailsProps {
 	marker: Marker | null;
 	layers?: Layer[];
 	onBack: () => void;
-	onSave?: (id: string, data: { name: string; description: string; labels: string[]; layerId?: string }) => Promise<void>;
+	onSave?: (
+		id: string,
+		data: { name: string; description: string; labels: string[]; layerId?: string },
+	) => Promise<void>;
 	onDelete?: (id: string) => Promise<void>;
 }
 
@@ -218,11 +221,12 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 							fontWeight: 'bold',
 							mb: 1,
 							cursor: layers.length > 0 ? 'pointer' : 'default',
-							'&:hover': layers.length > 0
-								? {
-										opacity: 0.8,
-								  }
-								: {},
+							'&:hover':
+								layers.length > 0
+									? {
+											opacity: 0.8,
+										}
+									: {},
 						}}
 					/>
 				)}

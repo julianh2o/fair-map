@@ -44,11 +44,12 @@ ARG VCS_REF
 
 # OCI standard labels
 LABEL org.opencontainers.image.title="fair-map"
-LABEL org.opencontainers.image.description="Fair map application"
+LABEL org.opencontainers.image.description="Interactive property mapping application with layer-based marker organization"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.authors="Julian Hartline <https://www.julianhartline.com>"
+LABEL org.opencontainers.image.source="https://github.com/julianh2o/fair-map"
 
 # Install OpenSSL for Prisma
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
@@ -80,7 +81,7 @@ COPY --from=builder /app/build ./build
 # Create data directory for database
 RUN mkdir -p data
 
-# Expose the port (defaults to 2999 but can be overridden with PORT env var)
+# Expose the port (defaults to 2999, docker-compose uses 3020)
 EXPOSE 2999
 
 # Set NODE_ENV to production

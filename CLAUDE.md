@@ -8,7 +8,17 @@ IMPORTANT: **Prevent Map Flashing/Flickering:** The map component in `src/compon
 
 ## Project Overview
 
-This is a minimal application template with a React/TypeScript frontend and Express backend. It provides a basic foundation for building web applications with authentication, routing, and database support.
+Fair Map is an interactive property mapping application with a React/TypeScript frontend and Express backend. It provides comprehensive tools for managing geographic markers, layers, and geotagged images on an OpenLayers-based interactive map.
+
+**Key Features:**
+- Interactive map with layer-based marker organization
+- Geotagged image upload with EXIF GPS extraction
+- Active layer system for streamlined marker creation
+- Mobile-responsive UI with bottom sheet design
+- Drag-and-drop marker repositioning
+- Label-based marker categorization
+- HEIC/HEIF image conversion support
+- Satellite and custom image overlay support
 
 ## Commands
 

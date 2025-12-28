@@ -78,6 +78,7 @@ router.post('/image', upload.single('image') as any, async (req: Request, res: R
 				});
 
 				// Write JPEG file using sharp for additional optimization
+				// eslint-disable-next-line no-undef
 				await sharp(outputBuffer as Buffer)
 					.jpeg({ quality: 85 })
 					.toFile(jpegPath);
@@ -137,6 +138,7 @@ router.post('/images', upload.array('images', 50) as any, async (req: Request, r
 						});
 
 						// Write JPEG file using sharp for additional optimization
+						// eslint-disable-next-line no-undef
 						await sharp(outputBuffer as Buffer)
 							.jpeg({ quality: 85 })
 							.toFile(jpegPath);
