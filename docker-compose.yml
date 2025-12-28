@@ -1,5 +1,5 @@
 services:
-  uneventful:
+  fair-map:
     build:
       context: .
       dockerfile: Dockerfile

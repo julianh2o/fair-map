@@ -72,12 +72,17 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
 	try {
 		const { id } = req.params;
-		const { name, description, photo, latitude, longitude, labels } = req.body;
+		const { name, description, photo, latitude, longitude, labels, layerId } = req.body;
 		const updateData: any = { name, description, photo, latitude, longitude };
 
 		// Only update labels if provided
 		if (labels !== undefined) {
 			updateData.labels = JSON.stringify(labels);
+		}
+
+		// Only update layerId if provided
+		if (layerId !== undefined) {
+			updateData.layerId = layerId;
 		}
 
 		const marker = await prisma.marker.update({

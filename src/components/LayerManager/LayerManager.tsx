@@ -50,6 +50,8 @@ interface ImageOverlay {
 
 interface LayerManagerProps {
 	layers: Layer[];
+	activeLayerId: string;
+	onSetActiveLayer: (id: string) => void;
 	imageOverlays: ImageOverlay[];
 	satelliteVisible: boolean;
 	onToggleVisibility: (id: string, visible: boolean) => void;
@@ -69,6 +71,8 @@ interface LayerManagerProps {
 
 export const LayerManager = ({
 	layers,
+	activeLayerId,
+	onSetActiveLayer,
 	imageOverlays,
 	satelliteVisible,
 	onToggleVisibility,
@@ -259,17 +263,33 @@ export const LayerManager = ({
 								{layers.map((layer) => (
 									<ListItem
 										key={layer.id}
+										onClick={() => onSetActiveLayer(layer.id)}
+										sx={{
+											cursor: 'pointer',
+											backgroundColor: layer.id === activeLayerId ? 'rgba(25, 118, 210, 0.12)' : 'transparent',
+											borderLeft: layer.id === activeLayerId ? '3px solid #1976d2' : '3px solid transparent',
+											'&:hover': {
+												backgroundColor:
+													layer.id === activeLayerId ? 'rgba(25, 118, 210, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+											},
+										}}
 										secondaryAction={
 											<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
 												<Switch
 													checked={layer.visible}
-													onChange={(e) => onToggleVisibility(layer.id, e.target.checked)}
+													onChange={(e) => {
+														e.stopPropagation();
+														onToggleVisibility(layer.id, e.target.checked);
+													}}
 													size='small'
 												/>
 												<IconButton
 													edge='end'
 													size='small'
-													onClick={() => onDeleteLayer(layer.id)}
+													onClick={(e) => {
+														e.stopPropagation();
+														onDeleteLayer(layer.id);
+													}}
 													disabled={layers.length === 1}>
 													<Delete fontSize='small' />
 												</IconButton>

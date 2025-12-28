@@ -12,10 +12,20 @@ import {
 	DialogContentText,
 	DialogActions,
 	Button,
+	List,
+	ListItem,
+	ListItemIcon,
+	ListItemText,
 } from '@mui/material';
-import { ArrowBack, LocationOn, Check, Delete } from '@mui/icons-material';
+import { ArrowBack, LocationOn, Check, Delete, Circle } from '@mui/icons-material';
 import { API_BASE } from '../../services/api';
 import { LabelsInput } from '../LabelsInput';
+
+interface Layer {
+	id: string;
+	name: string;
+	color: string;
+}
 
 interface Marker {
 	id: string;
@@ -34,18 +44,20 @@ interface Marker {
 
 interface MarkerDetailsProps {
 	marker: Marker | null;
+	layers?: Layer[];
 	onBack: () => void;
-	onSave?: (id: string, data: { name: string; description: string; labels: string[] }) => Promise<void>;
+	onSave?: (id: string, data: { name: string; description: string; labels: string[]; layerId?: string }) => Promise<void>;
 	onDelete?: (id: string) => Promise<void>;
 }
 
-export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetailsProps) => {
+export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }: MarkerDetailsProps) => {
 	const [name, setName] = useState('');
 	const [notes, setNotes] = useState('');
 	const [labels, setLabels] = useState<string[]>([]);
 	const [isSaving, setIsSaving] = useState(false);
 	const [showSaved, setShowSaved] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [layerDialogOpen, setLayerDialogOpen] = useState(false);
 
 	// Update local state when marker changes
 	useEffect(() => {
@@ -72,7 +84,7 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 		return `${serverBase}${photo}`;
 	};
 
-	const handleSave = async () => {
+	const handleSave = async (layerId?: string) => {
 		if (!onSave) return;
 
 		setIsSaving(true);
@@ -82,6 +94,7 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 				name: name,
 				description: notes,
 				labels: labels,
+				...(layerId !== undefined && { layerId }),
 			});
 			setShowSaved(true);
 			setTimeout(() => setShowSaved(false), 2000);
@@ -89,6 +102,23 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 			console.error('Error saving marker:', error);
 		} finally {
 			setIsSaving(false);
+		}
+	};
+
+	const handleBlurSave = () => {
+		handleSave();
+	};
+
+	const handleLayerClick = () => {
+		if (layers.length > 0) {
+			setLayerDialogOpen(true);
+		}
+	};
+
+	const handleLayerSelect = async (layerId: string) => {
+		setLayerDialogOpen(false);
+		if (layerId !== marker.layerId) {
+			await handleSave(layerId);
 		}
 	};
 
@@ -181,11 +211,18 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 					<Chip
 						label={marker.layer.name}
 						size='small'
+						onClick={handleLayerClick}
 						sx={{
 							bgcolor: marker.layer.color,
 							color: 'white',
 							fontWeight: 'bold',
 							mb: 1,
+							cursor: layers.length > 0 ? 'pointer' : 'default',
+							'&:hover': layers.length > 0
+								? {
+										opacity: 0.8,
+								  }
+								: {},
 						}}
 					/>
 				)}
@@ -195,7 +232,7 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 				label='Name'
 				value={name}
 				onChange={(e) => setName(e.target.value)}
-				onBlur={handleSave}
+				onBlur={handleBlurSave}
 				onKeyDown={handleKeyDown}
 				fullWidth
 				size='small'
@@ -206,7 +243,7 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 				label='Notes'
 				value={notes}
 				onChange={(e) => setNotes(e.target.value)}
-				onBlur={handleSave}
+				onBlur={handleBlurSave}
 				onKeyDown={handleKeyDown}
 				fullWidth
 				multiline
@@ -217,7 +254,7 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 			/>
 
 			<Box sx={{ mb: 2 }}>
-				<LabelsInput value={labels} onChange={setLabels} onBlur={handleSave} disabled={isSaving} />
+				<LabelsInput value={labels} onChange={setLabels} onBlur={handleBlurSave} disabled={isSaving} />
 			</Box>
 
 			<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
@@ -226,6 +263,38 @@ export const MarkerDetails = ({ marker, onBack, onSave, onDelete }: MarkerDetail
 					{marker.latitude.toFixed(6)}, {marker.longitude.toFixed(6)}
 				</Typography>
 			</Box>
+
+			{/* Layer selection dialog */}
+			<Dialog open={layerDialogOpen} onClose={() => setLayerDialogOpen(false)} maxWidth='xs' fullWidth>
+				<DialogTitle>Move to Layer</DialogTitle>
+				<DialogContent sx={{ p: 0 }}>
+					<List>
+						{layers.map((layer) => (
+							<ListItem
+								key={layer.id}
+								onClick={() => handleLayerSelect(layer.id)}
+								sx={{
+									cursor: 'pointer',
+									bgcolor: layer.id === marker.layerId ? 'rgba(25, 118, 210, 0.12)' : 'transparent',
+									'&:hover': {
+										bgcolor: layer.id === marker.layerId ? 'rgba(25, 118, 210, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+									},
+								}}>
+								<ListItemIcon>
+									<Circle sx={{ color: layer.color }} />
+								</ListItemIcon>
+								<ListItemText
+									primary={layer.name}
+									secondary={layer.id === marker.layerId ? 'Current layer' : undefined}
+								/>
+							</ListItem>
+						))}
+					</List>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setLayerDialogOpen(false)}>Cancel</Button>
+				</DialogActions>
+			</Dialog>
 
 			{/* Delete confirmation dialog */}
 			<Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>

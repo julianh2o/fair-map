@@ -18,7 +18,7 @@ interface ImageUploadProps {
 	open: boolean;
 	onClose: () => void;
 	onUploadComplete: (count: number) => void;
-	defaultLayerId: string;
+	activeLayerId: string;
 }
 
 interface ImageWithMetadata {
@@ -29,7 +29,7 @@ interface ImageWithMetadata {
 	hasGPS: boolean;
 }
 
-export const ImageUpload = ({ open, onClose, onUploadComplete, defaultLayerId }: ImageUploadProps) => {
+export const ImageUpload = ({ open, onClose, onUploadComplete, activeLayerId }: ImageUploadProps) => {
 	const [uploading, setUploading] = useState(false);
 	const [progress, setProgress] = useState(0);
 	const [error, setError] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export const ImageUpload = ({ open, onClose, onUploadComplete, defaultLayerId }:
 							photo: url,
 							latitude: imageData.latitude,
 							longitude: imageData.longitude,
-							layerId: defaultLayerId,
+							layerId: activeLayerId,
 						}),
 					});
 

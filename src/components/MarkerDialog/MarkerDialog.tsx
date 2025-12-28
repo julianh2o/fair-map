@@ -37,11 +37,21 @@ interface MarkerDialogProps {
 	latitude: number;
 	longitude: number;
 	layers: Layer[];
+	activeLayerId?: string;
 	onClose: () => void;
 	onSave: (marker: MarkerData) => void;
 }
 
-export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClose, onSave }: MarkerDialogProps) => {
+export const MarkerDialog = ({
+	open,
+	marker,
+	latitude,
+	longitude,
+	layers,
+	activeLayerId,
+	onClose,
+	onSave,
+}: MarkerDialogProps) => {
 	const [name, setName] = useState('');
 	const [description, setDescription] = useState('');
 	const [photo, setPhoto] = useState('');
@@ -59,10 +69,11 @@ export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClos
 			setName('');
 			setDescription('');
 			setPhoto('');
-			setLayerId(layers.length > 0 ? layers[0].id : '');
+			// Use activeLayerId if provided, otherwise fall back to first layer
+			setLayerId(activeLayerId || (layers.length > 0 ? layers[0].id : ''));
 			setLabels([]);
 		}
-	}, [marker, layers, open]);
+	}, [marker, layers, activeLayerId, open]);
 
 	const handleSave = () => {
 		if (!name.trim() || !layerId) return;

@@ -1,14 +1,14 @@
 {
-  "name": "uneventful",
+  "name": "fair-map",
   "version": "1.0.19",
-  "description": "uneventful - Your event management solution",
+  "description": "Fair Map - Interactive property mapping and marker management",
   "author": {
     "name": "Julian Hartline",
-    "url": "https://uneventful.bawdyshop.space"
+    "url": "https://github.com/julianh2o"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/julianh2o/uneventful"
+    "url": "https://github.com/julianh2o/fair-map"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",

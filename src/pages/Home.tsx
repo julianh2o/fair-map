@@ -29,6 +29,7 @@ export const Home = () => {
 	const [imageOverlays, setImageOverlays] = useState<ImageOverlay[]>([]);
 	const [layers, setLayers] = useState<Layer[]>([]);
 	const [markers, setMarkers] = useState<Marker[]>([]);
+	const [activeLayerId, setActiveLayerId] = useState<string>('');
 	const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
 	const [markerPosition, setMarkerPosition] = useState<{ lat: number; lon: number } | null>(null);
 	const [isLayerManagerOpen, setIsLayerManagerOpen] = useState(true);
@@ -107,6 +108,10 @@ export const Home = () => {
 				if (layersData.length === 0) {
 					const defaultLayer = await layersApi.create({ name: 'Default Layer', color: '#FF5733' });
 					setLayers([defaultLayer]);
+					setActiveLayerId(defaultLayer.id);
+				} else {
+					// Set the first layer as active on initial load
+					setActiveLayerId(layersData[0].id);
 				}
 			} catch (err) {
 				console.error('Error fetching data:', err);
@@ -196,6 +201,8 @@ export const Home = () => {
 		try {
 			const newLayer = await layersApi.create({ name, color });
 			setLayers([...layers, newLayer]);
+			// Set the newly created layer as active
+			setActiveLayerId(newLayer.id);
 		} catch (err) {
 			console.error('Error creating layer:', err);
 			setError('Failed to create layer');
@@ -205,8 +212,14 @@ export const Home = () => {
 	const handleDeleteLayer = async (layerId: string) => {
 		try {
 			await layersApi.delete(layerId);
-			setLayers(layers.filter((l) => l.id !== layerId));
+			const remainingLayers = layers.filter((l) => l.id !== layerId);
+			setLayers(remainingLayers);
 			setMarkers(markers.filter((m) => m.layerId !== layerId));
+
+			// If the deleted layer was active, switch to the first remaining layer
+			if (activeLayerId === layerId && remainingLayers.length > 0) {
+				setActiveLayerId(remainingLayers[0].id);
+			}
 		} catch (err) {
 			console.error('Error deleting layer:', err);
 			setError('Failed to delete layer');
@@ -284,7 +297,7 @@ export const Home = () => {
 	}, [previousView]);
 
 	const handleSaveMarkerDetails = useCallback(
-		async (id: string, data: { name: string; description: string; labels: string[] }) => {
+		async (id: string, data: { name: string; description: string; labels: string[]; layerId?: string }) => {
 			try {
 				const updatedMarker = await markersApi.update(id, data);
 
@@ -423,6 +436,8 @@ export const Home = () => {
 				)}
 				<LayerManager
 					layers={layers}
+					activeLayerId={activeLayerId}
+					onSetActiveLayer={setActiveLayerId}
 					imageOverlays={imageOverlays}
 					satelliteVisible={satelliteVisible}
 					onToggleVisibility={handleToggleLayerVisibility}
@@ -443,6 +458,7 @@ export const Home = () => {
 					markerDetailsContent={
 						<MarkerDetails
 							marker={selectedMarker}
+							layers={layers}
 							onBack={handleBackFromDetails}
 							onSave={handleSaveMarkerDetails}
 							onDelete={handleDeleteMarker}
@@ -453,7 +469,7 @@ export const Home = () => {
 					open={showImageUpload}
 					onClose={() => setShowImageUpload(false)}
 					onUploadComplete={handleUploadComplete}
-					defaultLayerId={layers[0]?.id || ''}
+					activeLayerId={activeLayerId}
 				/>
 				{markerPosition && (
 					<MarkerDialog
@@ -461,6 +477,7 @@ export const Home = () => {
 						latitude={markerPosition.lat}
 						longitude={markerPosition.lon}
 						layers={layers}
+						activeLayerId={activeLayerId}
 						onClose={() => {
 							setMarkerDialogOpen(false);
 							setMarkerPosition(null);
