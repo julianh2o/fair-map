@@ -1,7 +1,7 @@
-// In dev mode (localhost), use explicit localhost:2999
+// In dev mode, use the same host on port 2999
 // In production, use relative path /api (same origin)
-const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const API_BASE = isDev ? 'http://localhost:2999/api' : '/api';
+const isDev = process.env.NODE_ENV === 'development';
+const API_BASE = isDev ? `${window.location.protocol}//${window.location.hostname}:2999/api` : '/api';
 
 export interface Layer {
 	id: string;
