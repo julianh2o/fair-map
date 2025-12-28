@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    platform: linux/arm64
+    platform: linux/amd64
     container_name: fair-map
     ports:
       - "3020:3020"
