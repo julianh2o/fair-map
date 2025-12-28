@@ -3,6 +3,8 @@
 ## Special instructions
 IMPORTANT: Do not build or release unless specifically asked or granted permission.
 IMPORTANT: When significant work is completed, perform a `yarn format > /dev/null && yarn lint && yarn typecheck && yarn build` to verify the code quality.
+IMPORTANT: **Always use the API_BASE constant for any uploaded files or backend resources.** Relative URLs like `/uploads/...` will fail in development mode because the client (port 2998) and server (port 2999) are on different ports. Import and use `API_BASE` from `src/services/api.ts` and construct URLs like `${API_BASE.replace('/api', '')}/uploads/filename.jpg`. In production, relative URLs work because everything is served from the same origin.
+IMPORTANT: **Prevent Map Flashing/Flickering:** The map component in `src/components/Map/Map.tsx` uses refs (`onMarkerClickRef`, `onLongPressRef`) to store callback functions. This prevents the main map initialization useEffect from re-running when callbacks change. The main useEffect should ONLY depend on `[center, zoom]`. Never add callback props like `onMarkerClick` or `onLongPress` to this dependency array, as it will cause the map to reinitialize and tiles to flash when state changes occur in parent components.
 
 ## Project Overview
 

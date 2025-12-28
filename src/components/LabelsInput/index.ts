@@ -1,0 +1,1 @@
+export { LabelsInput } from './LabelsInput';

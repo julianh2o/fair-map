@@ -11,9 +11,13 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import CircleGeom from 'ol/geom/Circle';
+import LineString from 'ol/geom/LineString';
 import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { getCenter } from 'ol/extent';
+import Modify from 'ol/interaction/Modify';
+import { ModifyEvent } from 'ol/interaction/Modify';
+import { Collection } from 'ol';
 import 'ol/ol.css';
 import './Map.css';
 
@@ -62,6 +66,10 @@ interface MapComponentProps {
 	userLocation?: UserLocation | null;
 	showUserLocation?: boolean;
 	onLongPress?: (longitude: number, latitude: number) => void;
+	crosshairsTarget?: { latitude: number; longitude: number } | null;
+	onMarkerClick?: (markerId: string) => void;
+	selectedMarkerId?: string | null;
+	onMarkerDrag?: (markerId: string, longitude: number, latitude: number) => void;
 }
 
 export const MapComponent = ({
@@ -74,6 +82,10 @@ export const MapComponent = ({
 	userLocation,
 	showUserLocation = false,
 	onLongPress,
+	crosshairsTarget,
+	onMarkerClick,
+	selectedMarkerId = null,
+	onMarkerDrag,
 }: MapComponentProps) => {
 	// eslint-disable-next-line no-undef
 	const mapRef = useRef<HTMLDivElement>(null);
@@ -84,8 +96,23 @@ export const MapComponent = ({
 	const imageOverlayLayersRef = useRef(new globalThis.Map<string, ImageLayer<ImageStatic>>());
 	const markersLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const userLocationLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+	const crosshairsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const longPressPositionRef = useRef<number[] | null>(null);
+	const crosshairsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const onMarkerClickRef = useRef(onMarkerClick);
+	const onLongPressRef = useRef(onLongPress);
+	const onMarkerDragRef = useRef(onMarkerDrag);
+	const modifyInteractionRef = useRef<Modify | null>(null);
+	const selectedMarkerIdRef = useRef(selectedMarkerId);
+
+	// Update callback refs when they change (without reinitializing the map)
+	useEffect(() => {
+		onMarkerClickRef.current = onMarkerClick;
+		onLongPressRef.current = onLongPress;
+		onMarkerDragRef.current = onMarkerDrag;
+		selectedMarkerIdRef.current = selectedMarkerId;
+	}, [onMarkerClick, onLongPress, onMarkerDrag, selectedMarkerId]);
 
 	useEffect(() => {
 		if (!mapRef.current) return;
@@ -132,19 +159,19 @@ export const MapComponent = ({
 			style: (feature) => {
 				const color = feature.get('color') || '#FF5733';
 				const name = feature.get('name') || '';
-				const hasPhoto = feature.get('hasPhoto') || false;
-
-				// Show camera icon if marker has photo but no name
-				const displayText = !name && hasPhoto ? '📷' : name;
+				const isSelected = feature.getId() === selectedMarkerIdRef.current;
 
 				return new Style({
 					image: new Circle({
 						radius: 8,
 						fill: new Fill({ color: color }),
-						stroke: new Stroke({ color: '#fff', width: 2 }),
+						stroke: new Stroke({
+							color: isSelected ? '#00BFFF' : '#fff',
+							width: isSelected ? 4 : 2,
+						}),
 					}),
 					text: new Text({
-						text: displayText,
+						text: name,
 						offsetY: -15,
 						fill: new Fill({ color: '#fff' }),
 						stroke: new Stroke({ color: '#000', width: 3 }),
@@ -164,7 +191,6 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
-				feature.set('hasPhoto', !!marker.photo);
 				return feature;
 			});
 		markersSource.addFeatures(features);
@@ -198,6 +224,21 @@ export const MapComponent = ({
 		userLocationLayerRef.current = userLocationLayer;
 		layers.push(userLocationLayer);
 
+		// Create crosshairs layer
+		const crosshairsSource = new VectorSource();
+		const crosshairsLayer = new VectorLayer({
+			source: crosshairsSource,
+			style: new Style({
+				stroke: new Stroke({
+					color: '#FF0000',
+					width: 2,
+				}),
+			}),
+		});
+
+		crosshairsLayerRef.current = crosshairsLayer;
+		layers.push(crosshairsLayer);
+
 		const view = new View({
 			center: fromLonLat(center),
 			zoom: zoom,
@@ -220,9 +261,26 @@ export const MapComponent = ({
 		view.on('change:resolution', handleZoomChange);
 		console.log('Initial zoom level:', zoom);
 
+		// Handle marker clicks
+		let cleanupMarkerClickHandler: (() => void) | null = null;
+		if (onMarkerClickRef.current) {
+			const handleMapClick = (evt: any) => {
+				const feature = map.forEachFeatureAtPixel(evt.pixel, (feature) => feature);
+				if (feature && feature.getId()) {
+					const markerId = feature.getId() as string;
+					onMarkerClickRef.current?.(markerId);
+				}
+			};
+
+			map.on('singleclick', handleMapClick);
+			cleanupMarkerClickHandler = () => {
+				map.un('singleclick', handleMapClick);
+			};
+		}
+
 		let cleanupPointerHandlers: (() => void) | null = null;
 
-		if (onLongPress) {
+		if (onLongPressRef.current) {
 			const viewport = map.getViewport();
 			const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -235,7 +293,7 @@ export const MapComponent = ({
 					const coordinate = map.getCoordinateFromPixel(pixel);
 					if (coordinate) {
 						const [lon, lat] = toLonLat(coordinate);
-						onLongPress(lon, lat);
+						onLongPressRef.current?.(lon, lat);
 					}
 				}
 			};
@@ -252,7 +310,7 @@ export const MapComponent = ({
 						longPressTimerRef.current = setTimeout(() => {
 							if (longPressPositionRef.current) {
 								const [lon, lat] = toLonLat(longPressPositionRef.current);
-								onLongPress(lon, lat);
+								onLongPressRef.current?.(lon, lat);
 								longPressPositionRef.current = null;
 							}
 						}, 500);
@@ -295,6 +353,9 @@ export const MapComponent = ({
 
 		return () => {
 			view.un('change:resolution', handleZoomChange);
+			if (cleanupMarkerClickHandler) {
+				cleanupMarkerClickHandler();
+			}
 			if (cleanupPointerHandlers) {
 				cleanupPointerHandlers();
 			}
@@ -303,7 +364,7 @@ export const MapComponent = ({
 			}
 			map.setTarget(undefined);
 		};
-	}, [center, zoom, onLongPress]);
+	}, [center, zoom]);
 
 	// Handle satellite visibility changes
 	useEffect(() => {
@@ -339,12 +400,68 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
-				feature.set('hasPhoto', !!marker.photo);
 				return feature;
 			});
 
 		source.addFeatures(features);
 	}, [markers]);
+
+	// Update marker styles when selection changes
+	useEffect(() => {
+		if (!markersLayerRef.current) return;
+		markersLayerRef.current.changed();
+	}, [selectedMarkerId]);
+
+	// Handle dragging of selected marker
+	useEffect(() => {
+		if (!mapInstanceRef.current || !markersLayerRef.current) return;
+
+		// Remove existing modify interaction if any
+		if (modifyInteractionRef.current) {
+			mapInstanceRef.current.removeInteraction(modifyInteractionRef.current);
+			modifyInteractionRef.current = null;
+		}
+
+		// Add new modify interaction if a marker is selected
+		if (selectedMarkerId && onMarkerDragRef.current) {
+			const source = markersLayerRef.current.getSource();
+			if (!source) return;
+
+			const selectedFeature = source.getFeatureById(selectedMarkerId);
+			if (selectedFeature) {
+				const features = new Collection([selectedFeature]);
+				const modifyInteraction = new Modify({
+					features,
+					// Disable default hover styling
+					style: undefined,
+				});
+
+				modifyInteraction.on('modifyend', (evt: ModifyEvent) => {
+					const feature = evt.features.getArray()[0];
+					if (feature) {
+						const geometry = feature.getGeometry();
+						if (geometry && geometry.getType() === 'Point') {
+							const point = geometry as Point;
+							const coords = point.getCoordinates();
+							const [lon, lat] = toLonLat(coords);
+							const markerId = feature.getId() as string;
+							onMarkerDragRef.current?.(markerId, lon, lat);
+						}
+					}
+				});
+
+				mapInstanceRef.current.addInteraction(modifyInteraction);
+				modifyInteractionRef.current = modifyInteraction;
+			}
+		}
+
+		return () => {
+			if (modifyInteractionRef.current && mapInstanceRef.current) {
+				mapInstanceRef.current.removeInteraction(modifyInteractionRef.current);
+				modifyInteractionRef.current = null;
+			}
+		};
+	}, [selectedMarkerId, markers]);
 
 	useEffect(() => {
 		if (!userLocationLayerRef.current) return;
@@ -404,6 +521,64 @@ export const MapComponent = ({
 
 		mapInstanceRef.current.render();
 	}, [overlayConfig, imageOverlays]);
+
+	// Handle crosshairs target changes
+	useEffect(() => {
+		if (!crosshairsTarget || !crosshairsLayerRef.current || !mapInstanceRef.current) return;
+
+		const source = crosshairsLayerRef.current.getSource();
+		if (!source) return;
+
+		// Clear any existing crosshairs timer
+		if (crosshairsTimerRef.current) {
+			clearTimeout(crosshairsTimerRef.current);
+		}
+
+		// Pan the map to the target
+		const view = mapInstanceRef.current.getView();
+		const targetCoords = fromLonLat([crosshairsTarget.longitude, crosshairsTarget.latitude]);
+		view.animate({
+			center: targetCoords,
+			duration: 500,
+		});
+
+		// Create crosshairs (two perpendicular lines)
+		const crosshairSize = 50; // Size in pixels
+		const resolution = view.getResolution() || 1;
+		const size = crosshairSize * resolution;
+
+		// Horizontal line
+		const horizontalLine = new Feature({
+			geometry: new LineString([
+				[targetCoords[0] - size, targetCoords[1]],
+				[targetCoords[0] + size, targetCoords[1]],
+			]),
+		});
+
+		// Vertical line
+		const verticalLine = new Feature({
+			geometry: new LineString([
+				[targetCoords[0], targetCoords[1] - size],
+				[targetCoords[0], targetCoords[1] + size],
+			]),
+		});
+
+		// Add crosshairs to the layer
+		source.clear();
+		source.addFeatures([horizontalLine, verticalLine]);
+
+		// Set timer to remove crosshairs after 2 seconds
+		crosshairsTimerRef.current = setTimeout(() => {
+			source.clear();
+			crosshairsTimerRef.current = null;
+		}, 2000);
+
+		return () => {
+			if (crosshairsTimerRef.current) {
+				clearTimeout(crosshairsTimerRef.current);
+			}
+		};
+	}, [crosshairsTarget]);
 
 	return <div ref={mapRef} className='map-container' />;
 };

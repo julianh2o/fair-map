@@ -1,7 +1,7 @@
 // In dev mode, use the same host on port 2999
 // In production, use relative path /api (same origin)
 const isDev = process.env.NODE_ENV === 'development';
-const API_BASE = isDev ? `${window.location.protocol}//${window.location.hostname}:2999/api` : '/api';
+export const API_BASE = isDev ? `${window.location.protocol}//${window.location.hostname}:2999/api` : '/api';
 
 export interface Layer {
 	id: string;
@@ -20,6 +20,7 @@ export interface Marker {
 	photo: string | null;
 	latitude: number;
 	longitude: number;
+	labels: string;
 	layerId: string;
 	layer?: Layer;
 	createdAt: string;
@@ -69,6 +70,12 @@ export const markersApi = {
 		return response.json();
 	},
 
+	getLabels: async (): Promise<string[]> => {
+		const response = await fetch(`${API_BASE}/markers/labels`);
+		if (!response.ok) throw new Error('Failed to fetch labels');
+		return response.json();
+	},
+
 	create: async (data: {
 		name: string;
 		description?: string;
@@ -76,6 +83,7 @@ export const markersApi = {
 		latitude: number;
 		longitude: number;
 		layerId: string;
+		labels?: string[];
 	}): Promise<Marker> => {
 		const response = await fetch(`${API_BASE}/markers`, {
 			method: 'POST',
@@ -86,7 +94,10 @@ export const markersApi = {
 		return response.json();
 	},
 
-	update: async (id: string, data: Partial<Marker>): Promise<Marker> => {
+	update: async (
+		id: string,
+		data: Partial<Omit<Marker, 'labels'>> & { labels?: string[] | string },
+	): Promise<Marker> => {
 		const response = await fetch(`${API_BASE}/markers/${id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },

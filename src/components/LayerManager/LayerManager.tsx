@@ -18,7 +18,17 @@ import {
 	CircularProgress,
 	Collapse,
 } from '@mui/material';
-import { Close, Add, Delete, Circle, Image, CloudUpload, Layers, MyLocation } from '@mui/icons-material';
+import {
+	Close,
+	Add,
+	Delete,
+	Circle,
+	Image,
+	CloudUpload,
+	Layers,
+	MyLocation,
+	FormatListBulleted,
+} from '@mui/icons-material';
 
 interface Layer {
 	id: string;
@@ -51,6 +61,10 @@ interface LayerManagerProps {
 	locationLoading?: boolean;
 	isOpen?: boolean;
 	onToggleOpen?: () => void;
+	view?: 'layers' | 'markers' | 'marker-details';
+	onViewChange?: (view: 'layers' | 'markers') => void;
+	markersListContent?: React.ReactNode;
+	markerDetailsContent?: React.ReactNode;
 }
 
 export const LayerManager = ({
@@ -66,6 +80,10 @@ export const LayerManager = ({
 	locationLoading = false,
 	isOpen = true,
 	onToggleOpen,
+	view = 'layers',
+	onViewChange,
+	markersListContent,
+	markerDetailsContent,
 }: LayerManagerProps) => {
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 	const [newLayerName, setNewLayerName] = useState('');
@@ -123,15 +141,40 @@ export const LayerManager = ({
 						borderBottom: isOpen ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
 					}}>
 					<IconButton
-						color='primary'
+						color={view === 'layers' ? 'primary' : 'default'}
 						aria-label='layers menu'
-						onClick={handleToggleOpen}
+						onClick={() => {
+							if (onViewChange) {
+								onViewChange('layers');
+							}
+							if (!isOpen && onToggleOpen) {
+								onToggleOpen();
+							}
+						}}
 						sx={{
 							'&:active': {
 								transform: 'scale(0.95)',
 							},
 						}}>
 						<Layers />
+					</IconButton>
+					<IconButton
+						color={view === 'markers' ? 'primary' : 'default'}
+						aria-label='markers list'
+						onClick={() => {
+							if (onViewChange) {
+								onViewChange('markers');
+							}
+							if (!isOpen && onToggleOpen) {
+								onToggleOpen();
+							}
+						}}
+						sx={{
+							'&:active': {
+								transform: 'scale(0.95)',
+							},
+						}}>
+						<FormatListBulleted />
 					</IconButton>
 					<IconButton
 						color='primary'
@@ -149,101 +192,107 @@ export const LayerManager = ({
 
 				{/* Collapsible Content */}
 				<Collapse in={isOpen}>
-					<Box sx={{ p: 2, pt: 1 }}>
-						{/* Drag handle - only visible on mobile when open */}
-						<Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 1 }}>
-							<Box
-								sx={{
-									width: 40,
-									height: 4,
-									borderRadius: 2,
-									backgroundColor: 'rgba(255, 255, 255, 0.3)',
-								}}
-							/>
-						</Box>
-						<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-							<Typography variant='h6'>Layers</Typography>
-						</Box>
-
-				<Typography variant='subtitle2' sx={{ mb: 1 }}>
-					Image Layers
-				</Typography>
-				<List dense>
-					{/* Satellite layer */}
-					<ListItem
-						key='satellite'
-						secondaryAction={
-							<Switch
-								edge='end'
-								checked={satelliteVisible}
-								onChange={() => onImageOverlayToggle('satellite')}
-								size='small'
-							/>
-						}>
-						<ListItemIcon>
-							<Image />
-						</ListItemIcon>
-						<ListItemText primary='Satellite' />
-					</ListItem>
-					{imageOverlays.map((overlay) => (
-						<ListItem
-							key={overlay.id}
-							secondaryAction={
-								<Switch
-									edge='end'
-									checked={overlay.visible}
-									onChange={() => onImageOverlayToggle(overlay.id)}
-									size='small'
+					{view === 'marker-details' ? (
+						markerDetailsContent
+					) : view === 'markers' ? (
+						markersListContent
+					) : (
+						<Box sx={{ p: 2, pt: 1 }}>
+							{/* Drag handle - only visible on mobile when open */}
+							<Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 1 }}>
+								<Box
+									sx={{
+										width: 40,
+										height: 4,
+										borderRadius: 2,
+										backgroundColor: 'rgba(255, 255, 255, 0.3)',
+									}}
 								/>
-							}>
-							<ListItemIcon>
-								<Image />
-							</ListItemIcon>
-							<ListItemText primary={overlay.name} />
-						</ListItem>
-					))}
-				</List>
+							</Box>
+							<Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+								<Typography variant='h6'>Layers</Typography>
+							</Box>
 
-				<Typography variant='subtitle2' sx={{ mb: 1, mt: 2 }}>
-					Marker Layers
-				</Typography>
-				<List dense>
-					{layers.map((layer) => (
-						<ListItem
-							key={layer.id}
-							secondaryAction={
-								<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-									<Switch
-										checked={layer.visible}
-										onChange={(e) => onToggleVisibility(layer.id, e.target.checked)}
-										size='small'
-									/>
-									<IconButton
-										edge='end'
-										size='small'
-										onClick={() => onDeleteLayer(layer.id)}
-										disabled={layers.length === 1}>
-										<Delete fontSize='small' />
-									</IconButton>
-								</Box>
-							}>
-							<ListItemIcon>
-								<Circle sx={{ color: layer.color }} />
-							</ListItemIcon>
-							<ListItemText primary={layer.name} secondary={`${layer._count?.markers || 0} markers`} />
-						</ListItem>
-					))}
-				</List>
+							<Typography variant='subtitle2' sx={{ mb: 1 }}>
+								Image Layers
+							</Typography>
+							<List dense>
+								{/* Satellite layer */}
+								<ListItem
+									key='satellite'
+									secondaryAction={
+										<Switch
+											edge='end'
+											checked={satelliteVisible}
+											onChange={() => onImageOverlayToggle('satellite')}
+											size='small'
+										/>
+									}>
+									<ListItemIcon>
+										<Image />
+									</ListItemIcon>
+									<ListItemText primary='Satellite' />
+								</ListItem>
+								{imageOverlays.map((overlay) => (
+									<ListItem
+										key={overlay.id}
+										secondaryAction={
+											<Switch
+												edge='end'
+												checked={overlay.visible}
+												onChange={() => onImageOverlayToggle(overlay.id)}
+												size='small'
+											/>
+										}>
+										<ListItemIcon>
+											<Image />
+										</ListItemIcon>
+										<ListItemText primary={overlay.name} />
+									</ListItem>
+								))}
+							</List>
 
-						<Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
-							<Button variant='contained' startIcon={<Add />} fullWidth onClick={() => setAddDialogOpen(true)}>
-								Add Marker Layer
-							</Button>
-							<Button variant='outlined' startIcon={<CloudUpload />} fullWidth onClick={onUploadImages}>
-								Upload Geotagged Images
-							</Button>
+							<Typography variant='subtitle2' sx={{ mb: 1, mt: 2 }}>
+								Marker Layers
+							</Typography>
+							<List dense>
+								{layers.map((layer) => (
+									<ListItem
+										key={layer.id}
+										secondaryAction={
+											<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+												<Switch
+													checked={layer.visible}
+													onChange={(e) => onToggleVisibility(layer.id, e.target.checked)}
+													size='small'
+												/>
+												<IconButton
+													edge='end'
+													size='small'
+													onClick={() => onDeleteLayer(layer.id)}
+													disabled={layers.length === 1}>
+													<Delete fontSize='small' />
+												</IconButton>
+											</Box>
+										}>
+										<ListItemIcon>
+											<Circle sx={{ color: layer.color }} />
+										</ListItemIcon>
+										<ListItemText primary={layer.name} secondary={`${layer._count?.markers || 0} markers`} />
+									</ListItem>
+								))}
+							</List>
+
+							<Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
+								<Button variant='contained' startIcon={<Add />} fullWidth onClick={() => setAddDialogOpen(true)}>
+									Add Marker Layer
+								</Button>
+								<Button variant='outlined' startIcon={<CloudUpload />} fullWidth onClick={onUploadImages}>
+									Upload Geotagged Images
+								</Button>
+							</Box>
 						</Box>
-					</Box>
+					)}
 				</Collapse>
 			</Paper>
 

@@ -7,10 +7,19 @@ import { APP_TITLE, PAGE_TITLE_HOME } from '../utils/constants';
 import { MapComponent, OverlayConfig, MapMarker, ImageOverlay, UserLocation } from '../components/Map';
 import { OverlayControls } from '../components/OverlayControls';
 import { MarkerDialog, MarkerData } from '../components/MarkerDialog';
+import { MarkerDetails } from '../components/MarkerDetails';
 import { LayerManager } from '../components/LayerManager';
+import { MarkersList } from '../components/MarkersList';
 import { ImageUpload } from '../components/ImageUpload';
 import { layersApi, markersApi, Layer, Marker } from '../services/api';
 import { useGeolocation } from '../hooks';
+
+interface MarkerWithLayerInfo extends Omit<Marker, 'layer'> {
+	layer?: {
+		name: string;
+		color: string;
+	};
+}
 
 export const Home = () => {
 	const [center, setCenter] = useState<[number, number] | null>(null);
@@ -25,6 +34,10 @@ export const Home = () => {
 	const [isLayerManagerOpen, setIsLayerManagerOpen] = useState(true);
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [panelView, setPanelView] = useState<'layers' | 'markers' | 'marker-details'>('layers');
+	const [previousView, setPreviousView] = useState<'layers' | 'markers'>('layers');
+	const [crosshairsTarget, setCrosshairsTarget] = useState<{ latitude: number; longitude: number } | null>(null);
+	const [selectedMarker, setSelectedMarker] = useState<MarkerWithLayerInfo | null>(null);
 
 	// Geolocation
 	const { position, error: locationError, loading: locationLoading } = useGeolocation();
@@ -235,6 +248,108 @@ export const Home = () => {
 		}
 	}, []);
 
+	const handleMarkerClick = useCallback(
+		(markerId: string, shouldPanToMarker: boolean = true) => {
+			const marker = markers.find((m) => m.id === markerId);
+			if (marker) {
+				// Get the layer info for the marker
+				const layer = layers.find((l) => l.id === marker.layerId);
+				const markerWithLayer = layer ? { ...marker, layer: { name: layer.name, color: layer.color } } : marker;
+
+				// Show marker details
+				setSelectedMarker(markerWithLayer);
+
+				// Switch to marker details view and open panel
+				setPreviousView(panelView === 'marker-details' ? previousView : (panelView as 'layers' | 'markers'));
+				setPanelView('marker-details');
+				setIsLayerManagerOpen(true);
+
+				// Only pan and show crosshairs if requested (e.g., when clicking from list)
+				if (shouldPanToMarker) {
+					setCrosshairsTarget({ latitude: marker.latitude, longitude: marker.longitude });
+
+					// Clear crosshairs target after a short delay
+					setTimeout(() => {
+						setCrosshairsTarget(null);
+					}, 2100);
+				}
+			}
+		},
+		[markers, layers, panelView, previousView],
+	);
+
+	const handleBackFromDetails = useCallback(() => {
+		setPanelView(previousView);
+		setSelectedMarker(null);
+	}, [previousView]);
+
+	const handleSaveMarkerDetails = useCallback(
+		async (id: string, data: { name: string; description: string; labels: string[] }) => {
+			try {
+				const updatedMarker = await markersApi.update(id, data);
+
+				// Update markers list
+				setMarkers(markers.map((m) => (m.id === id ? updatedMarker : m)));
+
+				// Update selected marker with layer info
+				if (selectedMarker && selectedMarker.id === id) {
+					const layer = layers.find((l) => l.id === updatedMarker.layerId);
+					setSelectedMarker(
+						layer ? { ...updatedMarker, layer: { name: layer.name, color: layer.color } } : updatedMarker,
+					);
+				}
+			} catch (err) {
+				console.error('Error updating marker:', err);
+				setError('Failed to update marker');
+				throw err;
+			}
+		},
+		[markers, selectedMarker, layers],
+	);
+
+	const handleMarkerDrag = useCallback(
+		async (markerId: string, longitude: number, latitude: number) => {
+			try {
+				const updatedMarker = await markersApi.update(markerId, { latitude, longitude });
+
+				// Update markers list
+				setMarkers(markers.map((m) => (m.id === markerId ? updatedMarker : m)));
+
+				// Update selected marker if it's the one being dragged
+				if (selectedMarker && selectedMarker.id === markerId) {
+					const layer = layers.find((l) => l.id === updatedMarker.layerId);
+					setSelectedMarker(
+						layer ? { ...updatedMarker, layer: { name: layer.name, color: layer.color } } : updatedMarker,
+					);
+				}
+			} catch (err) {
+				console.error('Error updating marker position:', err);
+				setError('Failed to update marker position');
+			}
+		},
+		[markers, selectedMarker, layers],
+	);
+
+	const handleDeleteMarker = useCallback(
+		async (markerId: string) => {
+			try {
+				await markersApi.delete(markerId);
+
+				// Remove marker from list
+				setMarkers(markers.filter((m) => m.id !== markerId));
+
+				// Clear selected marker and go back to previous view
+				setSelectedMarker(null);
+				setPanelView(previousView);
+			} catch (err) {
+				console.error('Error deleting marker:', err);
+				setError('Failed to delete marker');
+				throw err;
+			}
+		},
+		[markers, previousView],
+	);
+
 	// Compute markers with updated layer visibility
 	const markersWithUpdatedLayers = useMemo(() => {
 		return markers.map((marker) => {
@@ -292,6 +407,10 @@ export const Home = () => {
 					userLocation={userLocation}
 					showUserLocation={showUserLocation}
 					onLongPress={handleLongPress}
+					crosshairsTarget={crosshairsTarget}
+					onMarkerClick={(markerId) => handleMarkerClick(markerId, false)}
+					selectedMarkerId={selectedMarker?.id || null}
+					onMarkerDrag={handleMarkerDrag}
 				/>
 				{showOverlayControls && (
 					<OverlayControls
@@ -315,6 +434,20 @@ export const Home = () => {
 					locationLoading={locationLoading}
 					isOpen={isLayerManagerOpen}
 					onToggleOpen={() => setIsLayerManagerOpen(!isLayerManagerOpen)}
+					view={panelView}
+					onViewChange={(view) => {
+						setPanelView(view);
+						setPreviousView(view);
+					}}
+					markersListContent={<MarkersList layers={layers} markers={markers} onMarkerClick={handleMarkerClick} />}
+					markerDetailsContent={
+						<MarkerDetails
+							marker={selectedMarker}
+							onBack={handleBackFromDetails}
+							onSave={handleSaveMarkerDetails}
+							onDelete={handleDeleteMarker}
+						/>
+					}
 				/>
 				<ImageUpload
 					open={showImageUpload}

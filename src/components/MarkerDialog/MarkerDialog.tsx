@@ -12,6 +12,7 @@ import {
 	InputLabel,
 	Box,
 } from '@mui/material';
+import { LabelsInput } from '../LabelsInput';
 
 export interface MarkerData {
 	id?: string;
@@ -21,6 +22,7 @@ export interface MarkerData {
 	latitude: number;
 	longitude: number;
 	layerId: string;
+	labels?: string[];
 }
 
 interface Layer {
@@ -44,6 +46,7 @@ export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClos
 	const [description, setDescription] = useState('');
 	const [photo, setPhoto] = useState('');
 	const [layerId, setLayerId] = useState('');
+	const [labels, setLabels] = useState<string[]>([]);
 
 	useEffect(() => {
 		if (marker) {
@@ -51,11 +54,13 @@ export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClos
 			setDescription(marker.description || '');
 			setPhoto(marker.photo || '');
 			setLayerId(marker.layerId);
+			setLabels(marker.labels || []);
 		} else {
 			setName('');
 			setDescription('');
 			setPhoto('');
 			setLayerId(layers.length > 0 ? layers[0].id : '');
+			setLabels([]);
 		}
 	}, [marker, layers, open]);
 
@@ -70,6 +75,7 @@ export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClos
 			latitude,
 			longitude,
 			layerId,
+			labels,
 		});
 
 		onClose();
@@ -97,6 +103,7 @@ export const MarkerDialog = ({ open, marker, latitude, longitude, layers, onClos
 						fullWidth
 						placeholder='https://...'
 					/>
+					<LabelsInput value={labels} onChange={setLabels} />
 					<FormControl fullWidth required>
 						<InputLabel>Layer</InputLabel>
 						<Select value={layerId} onChange={(e) => setLayerId(e.target.value)} label='Layer'>

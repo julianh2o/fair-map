@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { CloudUpload, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import exifr from 'exifr';
+import { API_BASE } from '../../services/api';
 
 interface ImageUploadProps {
 	open: boolean;
@@ -94,7 +95,7 @@ export const ImageUpload = ({ open, onClose, onUploadComplete, defaultLayerId }:
 					const formData = new FormData();
 					formData.append('image', imageData.file);
 
-					const uploadResponse = await fetch('/api/upload/image', {
+					const uploadResponse = await fetch(`${API_BASE}/upload/image`, {
 						method: 'POST',
 						body: formData,
 					});
@@ -106,12 +107,12 @@ export const ImageUpload = ({ open, onClose, onUploadComplete, defaultLayerId }:
 					const { url } = await uploadResponse.json();
 
 					// Create marker with image
-					const markerResponse = await fetch('/api/markers', {
+					const markerResponse = await fetch(`${API_BASE}/markers`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
-							name: '', // No name for image-only markers
-							description: `Image: ${imageData.file.name}`,
+							name: '',
+							description: ``,
 							photo: url,
 							latitude: imageData.latitude,
 							longitude: imageData.longitude,

@@ -25,6 +25,7 @@ model Marker {
   photo       String?
   latitude    Float
   longitude   Float
+  labels      String   @default("[]")
   layerId     String
   layer       Layer    @relation(fields: [layerId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
