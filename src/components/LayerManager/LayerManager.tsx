@@ -15,7 +15,6 @@ import {
 	DialogContent,
 	DialogActions,
 	TextField,
-	CircularProgress,
 	Collapse,
 } from '@mui/material';
 import {
@@ -54,13 +53,13 @@ interface LayerManagerProps {
 	onSetActiveLayer: (id: string) => void;
 	imageOverlays: ImageOverlay[];
 	satelliteVisible: boolean;
+	showUserLocation: boolean;
 	onToggleVisibility: (id: string, visible: boolean) => void;
 	onImageOverlayToggle: (id: string) => void;
+	onUserLocationToggle: () => void;
 	onAddLayer: (name: string, color: string) => void;
 	onDeleteLayer: (id: string) => void;
 	onUploadImages: () => void;
-	onLocationClick: () => void;
-	locationLoading?: boolean;
 	isOpen?: boolean;
 	onToggleOpen?: () => void;
 	view?: 'layers' | 'markers' | 'marker-details';
@@ -75,13 +74,13 @@ export const LayerManager = ({
 	onSetActiveLayer,
 	imageOverlays,
 	satelliteVisible,
+	showUserLocation,
 	onToggleVisibility,
 	onImageOverlayToggle,
+	onUserLocationToggle,
 	onAddLayer,
 	onDeleteLayer,
 	onUploadImages,
-	onLocationClick,
-	locationLoading = false,
 	isOpen = true,
 	onToggleOpen,
 	view = 'layers',
@@ -180,18 +179,6 @@ export const LayerManager = ({
 						}}>
 						<FormatListBulleted />
 					</IconButton>
-					<IconButton
-						color='primary'
-						aria-label='my location'
-						onClick={onLocationClick}
-						disabled={locationLoading}
-						sx={{
-							'&:active': {
-								transform: 'scale(0.95)',
-							},
-						}}>
-						{locationLoading ? <CircularProgress size={24} /> : <MyLocation />}
-					</IconButton>
 				</Box>
 
 				{/* Collapsible Content */}
@@ -236,6 +223,17 @@ export const LayerManager = ({
 										<Image />
 									</ListItemIcon>
 									<ListItemText primary='Satellite' />
+								</ListItem>
+								{/* User Location */}
+								<ListItem
+									key='user-location'
+									secondaryAction={
+										<Switch edge='end' checked={showUserLocation} onChange={onUserLocationToggle} size='small' />
+									}>
+									<ListItemIcon>
+										<MyLocation />
+									</ListItemIcon>
+									<ListItemText primary='User Location' />
 								</ListItem>
 								{imageOverlays.map((overlay) => (
 									<ListItem

@@ -7,9 +7,18 @@ interface LabelsInputProps {
 	onChange: (labels: string[]) => void;
 	onBlur?: () => void;
 	disabled?: boolean;
+	onLabelClick?: (label: string) => void;
+	highlightedLabel?: string | null;
 }
 
-export const LabelsInput = ({ value, onChange, onBlur, disabled }: LabelsInputProps) => {
+export const LabelsInput = ({
+	value,
+	onChange,
+	onBlur,
+	disabled,
+	onLabelClick,
+	highlightedLabel,
+}: LabelsInputProps) => {
 	const [availableLabels, setAvailableLabels] = useState<string[]>([]);
 	const [inputValue, setInputValue] = useState('');
 
@@ -81,32 +90,91 @@ export const LabelsInput = ({ value, onChange, onBlur, disabled }: LabelsInputPr
 			onBlur={onBlur}
 			disabled={disabled}
 			renderTags={(tagValue, getTagProps) =>
-				tagValue.map((option, index) => (
-					// eslint-disable-next-line react/jsx-key
-					<Chip
-						label={option}
-						size='small'
-						{...getTagProps({ index })}
-						sx={{
-							bgcolor: 'primary.main',
-							color: 'white',
-							'& .MuiChip-deleteIcon': {
-								color: 'rgba(255, 255, 255, 0.7)',
-								'&:hover': {
-									color: 'white',
+				tagValue.map((option, index) => {
+					const isHighlighted = highlightedLabel === option;
+					const tagProps = getTagProps({ index });
+					return (
+						// eslint-disable-next-line react/jsx-key
+						<Chip
+							label={option}
+							size='small'
+							{...tagProps}
+							onClick={(e) => {
+								if (onLabelClick) {
+									e.stopPropagation();
+									onLabelClick(option);
+								}
+							}}
+							sx={{
+								bgcolor: isHighlighted ? '#FF8C00' : 'primary.main',
+								color: 'white',
+								cursor: onLabelClick ? 'pointer' : 'default',
+								transition: 'all 0.2s',
+								'&:hover': onLabelClick
+									? {
+											opacity: 0.8,
+											transform: 'scale(1.05)',
+										}
+									: {},
+								'& .MuiChip-deleteIcon': {
+									color: 'rgba(255, 255, 255, 0.7)',
+									'&:hover': {
+										color: 'white',
+									},
 								},
-							},
-						}}
-					/>
-				))
+							}}
+						/>
+					);
+				})
 			}
+			renderOption={(props, option) => {
+				const isHighlighted = highlightedLabel === option;
+				return (
+					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+					<li
+						{...props}
+						onClick={(e) => {
+							if (onLabelClick) {
+								onLabelClick(option);
+								e.preventDefault();
+								e.stopPropagation();
+							} else {
+								// Only add the label if we're not in highlight mode
+								const newValue = [...value, option];
+								onChange(newValue);
+							}
+						}}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								if (onLabelClick) {
+									onLabelClick(option);
+									e.preventDefault();
+									e.stopPropagation();
+								}
+							}
+						}}
+						style={{
+							...props.style,
+							backgroundColor: isHighlighted ? 'rgba(255, 140, 0, 0.2)' : props.style?.backgroundColor,
+							fontWeight: isHighlighted ? 'bold' : 'normal',
+							cursor: 'pointer',
+						}}>
+						{option}
+						{isHighlighted && ' ✓'}
+					</li>
+				);
+			}}
 			renderInput={(params) => (
 				<TextField
 					{...params}
 					label='Labels'
 					size='small'
 					placeholder='Type and press space or comma'
-					helperText='No spaces allowed. Use hyphens or colons. Press space or comma to add.'
+					helperText={
+						onLabelClick
+							? 'Click labels to highlight on map. Type and press space/comma to add new.'
+							: 'No spaces allowed. Use hyphens or colons. Press space or comma to add.'
+					}
 				/>
 			)}
 		/>

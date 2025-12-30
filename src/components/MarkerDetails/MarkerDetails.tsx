@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	Box,
 	Typography,
@@ -17,8 +17,8 @@ import {
 	ListItemIcon,
 	ListItemText,
 } from '@mui/material';
-import { ArrowBack, LocationOn, Check, Delete, Circle } from '@mui/icons-material';
-import { API_BASE } from '../../services/api';
+import { ArrowBack, LocationOn, Check, Delete, Circle, CloudUpload, Close } from '@mui/icons-material';
+import { API_BASE, uploadImage } from '../../services/api';
 import { LabelsInput } from '../LabelsInput';
 
 interface Layer {
@@ -48,25 +48,40 @@ interface MarkerDetailsProps {
 	onBack: () => void;
 	onSave?: (
 		id: string,
-		data: { name: string; description: string; labels: string[]; layerId?: string },
+		data: { name: string; description: string; labels: string[]; layerId?: string; photo?: string },
 	) => Promise<void>;
 	onDelete?: (id: string) => Promise<void>;
+	onLabelClick?: (label: string) => void;
+	highlightedLabel?: string | null;
 }
 
-export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }: MarkerDetailsProps) => {
+export const MarkerDetails = ({
+	marker,
+	layers = [],
+	onBack,
+	onSave,
+	onDelete,
+	onLabelClick,
+	highlightedLabel = null,
+}: MarkerDetailsProps) => {
 	const [name, setName] = useState('');
 	const [notes, setNotes] = useState('');
 	const [labels, setLabels] = useState<string[]>([]);
+	const [photo, setPhoto] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [showSaved, setShowSaved] = useState(false);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [layerDialogOpen, setLayerDialogOpen] = useState(false);
+	const [uploading, setUploading] = useState(false);
+	// eslint-disable-next-line no-undef
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// Update local state when marker changes
 	useEffect(() => {
 		if (marker) {
 			setName(marker.name || '');
 			setNotes(marker.description || '');
+			setPhoto(marker.photo);
 			try {
 				const parsedLabels = JSON.parse(marker.labels || '[]');
 				setLabels(Array.isArray(parsedLabels) ? parsedLabels : []);
@@ -87,7 +102,7 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 		return `${serverBase}${photo}`;
 	};
 
-	const handleSave = async (layerId?: string) => {
+	const handleSave = async (layerId?: string, photoUrl?: string) => {
 		if (!onSave) return;
 
 		setIsSaving(true);
@@ -98,6 +113,7 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 				description: notes,
 				labels: labels,
 				...(layerId !== undefined && { layerId }),
+				...(photoUrl !== undefined && { photo: photoUrl }),
 			});
 			setShowSaved(true);
 			setTimeout(() => setShowSaved(false), 2000);
@@ -106,6 +122,33 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 		} finally {
 			setIsSaving(false);
 		}
+	};
+
+	// eslint-disable-next-line no-undef
+	const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		setUploading(true);
+
+		try {
+			const url = await uploadImage(file);
+			setPhoto(url);
+			await handleSave(undefined, url);
+		} catch (error) {
+			console.error('Error uploading image:', error);
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	const handleUploadClick = () => {
+		fileInputRef.current?.click();
+	};
+
+	const handleRemovePhoto = async () => {
+		setPhoto(null);
+		await handleSave(undefined, '');
 	};
 
 	const handleBlurSave = () => {
@@ -187,26 +230,75 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 				</Box>
 			</Box>
 
-			{marker.photo && (
-				<Box
-					sx={{
-						width: '100%',
-						height: 200,
-						overflow: 'hidden',
-						borderRadius: 1,
-						bgcolor: 'black',
-						mb: 2,
-					}}>
-					<img
-						src={getPhotoUrl(marker.photo)}
-						alt={marker.name || 'Marker photo'}
-						style={{
+			{/* Image Upload/Display Section */}
+			<input type='file' ref={fileInputRef} onChange={handleFileSelect} accept='image/*' style={{ display: 'none' }} />
+
+			{photo ? (
+				<Box sx={{ position: 'relative', mb: 2 }}>
+					<Box
+						sx={{
 							width: '100%',
-							height: '100%',
-							objectFit: 'contain',
-						}}
-					/>
+							height: 200,
+							overflow: 'hidden',
+							borderRadius: 1,
+							bgcolor: 'black',
+						}}>
+						<img
+							src={getPhotoUrl(photo)}
+							alt={marker.name || 'Marker photo'}
+							style={{
+								width: '100%',
+								height: '100%',
+								objectFit: 'contain',
+							}}
+						/>
+					</Box>
+					<Box
+						sx={{
+							position: 'absolute',
+							top: 8,
+							right: 8,
+							display: 'flex',
+							gap: 1,
+						}}>
+						<IconButton
+							size='small'
+							onClick={handleUploadClick}
+							disabled={uploading || isSaving}
+							sx={{
+								bgcolor: 'rgba(0, 0, 0, 0.6)',
+								color: 'white',
+								'&:hover': {
+									bgcolor: 'rgba(0, 0, 0, 0.8)',
+								},
+							}}>
+							{uploading ? <CircularProgress size={20} /> : <CloudUpload fontSize='small' />}
+						</IconButton>
+						<IconButton
+							size='small'
+							onClick={handleRemovePhoto}
+							disabled={uploading || isSaving}
+							sx={{
+								bgcolor: 'rgba(0, 0, 0, 0.6)',
+								color: 'white',
+								'&:hover': {
+									bgcolor: 'rgba(0, 0, 0, 0.8)',
+								},
+							}}>
+							<Close fontSize='small' />
+						</IconButton>
+					</Box>
 				</Box>
+			) : (
+				<Button
+					variant='outlined'
+					startIcon={uploading ? <CircularProgress size={20} /> : <CloudUpload />}
+					onClick={handleUploadClick}
+					disabled={uploading || isSaving}
+					fullWidth
+					sx={{ mb: 2 }}>
+					Upload Image
+				</Button>
 			)}
 
 			<Box sx={{ mb: 2 }}>
@@ -258,7 +350,14 @@ export const MarkerDetails = ({ marker, layers = [], onBack, onSave, onDelete }:
 			/>
 
 			<Box sx={{ mb: 2 }}>
-				<LabelsInput value={labels} onChange={setLabels} onBlur={handleBlurSave} disabled={isSaving} />
+				<LabelsInput
+					value={labels}
+					onChange={setLabels}
+					onBlur={handleBlurSave}
+					disabled={isSaving}
+					onLabelClick={onLabelClick}
+					highlightedLabel={highlightedLabel}
+				/>
 			</Box>
 
 			<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>

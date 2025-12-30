@@ -14,7 +14,6 @@ import CircleGeom from 'ol/geom/Circle';
 import LineString from 'ol/geom/LineString';
 import { Style, Circle, Fill, Stroke, Text } from 'ol/style';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { getCenter } from 'ol/extent';
 import Modify from 'ol/interaction/Modify';
 import { ModifyEvent } from 'ol/interaction/Modify';
 import { Collection } from 'ol';
@@ -44,6 +43,7 @@ export interface MapMarker {
 	latitude: number;
 	longitude: number;
 	photo?: string;
+	labels?: string;
 	layer?: {
 		color: string;
 		visible: boolean;
@@ -69,6 +69,7 @@ interface MapComponentProps {
 	crosshairsTarget?: { latitude: number; longitude: number } | null;
 	onMarkerClick?: (markerId: string) => void;
 	selectedMarkerId?: string | null;
+	highlightedLabel?: string | null;
 	onMarkerDrag?: (markerId: string, longitude: number, latitude: number) => void;
 }
 
@@ -85,6 +86,7 @@ export const MapComponent = ({
 	crosshairsTarget,
 	onMarkerClick,
 	selectedMarkerId = null,
+	highlightedLabel = null,
 	onMarkerDrag,
 }: MapComponentProps) => {
 	// eslint-disable-next-line no-undef
@@ -97,14 +99,17 @@ export const MapComponent = ({
 	const markersLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const userLocationLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const crosshairsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+	const labelConnectionsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const longPressPositionRef = useRef<number[] | null>(null);
 	const crosshairsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const onMarkerClickRef = useRef(onMarkerClick);
 	const onLongPressRef = useRef(onLongPress);
+	const highlightedLabelRef = useRef(highlightedLabel);
 	const onMarkerDragRef = useRef(onMarkerDrag);
 	const modifyInteractionRef = useRef<Modify | null>(null);
 	const selectedMarkerIdRef = useRef(selectedMarkerId);
+	const highlightedLabelColor = '#ff00fbff';
 
 	// Update callback refs when they change (without reinitializing the map)
 	useEffect(() => {
@@ -160,14 +165,26 @@ export const MapComponent = ({
 				const color = feature.get('color') || '#FF5733';
 				const name = feature.get('name') || '';
 				const isSelected = feature.getId() === selectedMarkerIdRef.current;
+				const labels = feature.get('labels') || '[]';
+
+				// Check if this marker has the highlighted label
+				let hasHighlightedLabel = false;
+				if (highlightedLabelRef.current) {
+					try {
+						const markerLabels = JSON.parse(labels);
+						hasHighlightedLabel = Array.isArray(markerLabels) && markerLabels.includes(highlightedLabelRef.current);
+					} catch (e) {
+						// Invalid JSON, ignore
+					}
+				}
 
 				return new Style({
 					image: new Circle({
-						radius: 8,
+						radius: hasHighlightedLabel ? 10 : 8,
 						fill: new Fill({ color: color }),
 						stroke: new Stroke({
-							color: isSelected ? '#00BFFF' : '#fff',
-							width: isSelected ? 4 : 2,
+							color: isSelected ? '#00BFFF' : hasHighlightedLabel ? highlightedLabelColor : '#fff',
+							width: isSelected ? 4 : hasHighlightedLabel ? 3 : 2,
 						}),
 					}),
 					text: new Text({
@@ -191,6 +208,9 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
+				feature.set('labels', marker.labels || '[]');
+				feature.set('latitude', marker.latitude);
+				feature.set('longitude', marker.longitude);
 				return feature;
 			});
 		markersSource.addFeatures(features);
@@ -238,6 +258,23 @@ export const MapComponent = ({
 
 		crosshairsLayerRef.current = crosshairsLayer;
 		layers.push(crosshairsLayer);
+
+		// Create label connections layer (for drawing lines between markers with the same label)
+		const labelConnectionsSource = new VectorSource();
+		const labelConnectionsLayer = new VectorLayer({
+			source: labelConnectionsSource,
+			style: new Style({
+				stroke: new Stroke({
+					color: highlightedLabelColor,
+					width: 2,
+					lineDash: [5, 5], // Dashed line
+				}),
+			}),
+			zIndex: 10, // Above markers
+		});
+
+		labelConnectionsLayerRef.current = labelConnectionsLayer;
+		layers.push(labelConnectionsLayer);
 
 		const view = new View({
 			center: fromLonLat(center),
@@ -400,6 +437,9 @@ export const MapComponent = ({
 				feature.setId(marker.id);
 				feature.set('name', marker.name);
 				feature.set('color', marker.layer?.color || '#FF5733');
+				feature.set('labels', marker.labels || '[]');
+				feature.set('latitude', marker.latitude);
+				feature.set('longitude', marker.longitude);
 				return feature;
 			});
 
@@ -411,6 +451,74 @@ export const MapComponent = ({
 		if (!markersLayerRef.current) return;
 		markersLayerRef.current.changed();
 	}, [selectedMarkerId]);
+
+	// Handle highlighted label changes - update ref and redraw markers and connections
+	useEffect(() => {
+		highlightedLabelRef.current = highlightedLabel;
+
+		// Update marker styles
+		if (markersLayerRef.current) {
+			markersLayerRef.current.changed();
+		}
+
+		// Draw connections from selected marker to other markers with the same label
+		if (!labelConnectionsLayerRef.current || !markersLayerRef.current) return;
+
+		const connectionsSource = labelConnectionsLayerRef.current.getSource();
+		if (!connectionsSource) return;
+
+		connectionsSource.clear();
+
+		if (!highlightedLabel || !selectedMarkerId) return;
+
+		// Find all markers with the highlighted label
+		const markersSource = markersLayerRef.current.getSource();
+		if (!markersSource) return;
+
+		// Get the selected marker
+		const selectedFeature = markersSource.getFeatureById(selectedMarkerId);
+		if (!selectedFeature) return;
+
+		// Check if selected marker has the highlighted label
+		const selectedLabels = selectedFeature.get('labels') || '[]';
+		let selectedHasLabel = false;
+		try {
+			const markerLabels = JSON.parse(selectedLabels);
+			selectedHasLabel = Array.isArray(markerLabels) && markerLabels.includes(highlightedLabel);
+		} catch (e) {
+			// Invalid JSON, ignore
+		}
+
+		if (!selectedHasLabel) return;
+
+		// Get the selected marker's geometry
+		const selectedGeom = selectedFeature.getGeometry();
+		if (!selectedGeom || selectedGeom.getType() !== 'Point') return;
+		const selectedCoords = (selectedGeom as Point).getCoordinates();
+
+		// Draw lines from selected marker to all other markers with the highlighted label
+		markersSource.forEachFeature((feature) => {
+			// Skip the selected marker itself
+			if (feature.getId() === selectedMarkerId) return;
+
+			const labels = feature.get('labels') || '[]';
+			try {
+				const markerLabels = JSON.parse(labels);
+				if (Array.isArray(markerLabels) && markerLabels.includes(highlightedLabel)) {
+					const geom = feature.getGeometry();
+					if (geom && geom.getType() === 'Point') {
+						const coords = (geom as Point).getCoordinates();
+						const lineFeature = new Feature({
+							geometry: new LineString([selectedCoords, coords]),
+						});
+						connectionsSource.addFeature(lineFeature);
+					}
+				}
+			} catch (e) {
+				// Invalid JSON, ignore
+			}
+		});
+	}, [highlightedLabel, selectedMarkerId]);
 
 	// Handle dragging of selected marker
 	useEffect(() => {

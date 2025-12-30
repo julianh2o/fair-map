@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
 	Dialog,
 	DialogTitle,
@@ -11,8 +11,12 @@ import {
 	FormControl,
 	InputLabel,
 	Box,
+	CircularProgress,
+	IconButton,
 } from '@mui/material';
+import { CloudUpload, Delete } from '@mui/icons-material';
 import { LabelsInput } from '../LabelsInput';
+import { uploadImage, API_BASE } from '../../services/api';
 
 export interface MarkerData {
 	id?: string;
@@ -57,6 +61,10 @@ export const MarkerDialog = ({
 	const [photo, setPhoto] = useState('');
 	const [layerId, setLayerId] = useState('');
 	const [labels, setLabels] = useState<string[]>([]);
+	const [uploading, setUploading] = useState(false);
+	const [uploadError, setUploadError] = useState<string | null>(null);
+	// eslint-disable-next-line no-undef
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		if (marker) {
@@ -73,7 +81,44 @@ export const MarkerDialog = ({
 			setLayerId(activeLayerId || (layers.length > 0 ? layers[0].id : ''));
 			setLabels([]);
 		}
+		setUploadError(null);
 	}, [marker, layers, activeLayerId, open]);
+
+	// eslint-disable-next-line no-undef
+	const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		setUploading(true);
+		setUploadError(null);
+
+		try {
+			const url = await uploadImage(file);
+			setPhoto(url);
+		} catch (error) {
+			console.error('Error uploading image:', error);
+			setUploadError(error instanceof Error ? error.message : 'Failed to upload image');
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	const handleUploadClick = () => {
+		fileInputRef.current?.click();
+	};
+
+	const handleRemovePhoto = () => {
+		setPhoto('');
+		if (fileInputRef.current) {
+			fileInputRef.current.value = '';
+		}
+	};
+
+	const getPhotoUrl = (photoUrl: string) => {
+		if (photoUrl.startsWith('http')) return photoUrl;
+		const serverBase = API_BASE.replace('/api', '');
+		return `${serverBase}${photoUrl}`;
+	};
 
 	const handleSave = () => {
 		if (!name.trim() || !layerId) return;
@@ -107,13 +152,55 @@ export const MarkerDialog = ({
 						multiline
 						rows={3}
 					/>
-					<TextField
-						label='Photo URL (optional)'
-						value={photo}
-						onChange={(e) => setPhoto(e.target.value)}
-						fullWidth
-						placeholder='https://...'
-					/>
+
+					{/* Image Upload Section */}
+					<Box>
+						<input
+							type='file'
+							ref={fileInputRef}
+							onChange={handleFileSelect}
+							accept='image/*'
+							style={{ display: 'none' }}
+						/>
+						<Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+							<Button
+								variant='outlined'
+								startIcon={uploading ? <CircularProgress size={20} /> : <CloudUpload />}
+								onClick={handleUploadClick}
+								disabled={uploading}
+								fullWidth>
+								{photo ? 'Change Image' : 'Upload Image'}
+							</Button>
+							{photo && (
+								<IconButton onClick={handleRemovePhoto} color='error' disabled={uploading}>
+									<Delete />
+								</IconButton>
+							)}
+						</Box>
+						{uploadError && <Box sx={{ color: 'error.main', fontSize: '0.875rem', mt: 0.5 }}>{uploadError}</Box>}
+						{photo && !uploading && (
+							<Box
+								sx={{
+									mt: 2,
+									width: '100%',
+									height: 200,
+									overflow: 'hidden',
+									borderRadius: 1,
+									bgcolor: 'black',
+								}}>
+								<img
+									src={getPhotoUrl(photo)}
+									alt='Marker preview'
+									style={{
+										width: '100%',
+										height: '100%',
+										objectFit: 'contain',
+									}}
+								/>
+							</Box>
+						)}
+					</Box>
+
 					<LabelsInput value={labels} onChange={setLabels} />
 					<FormControl fullWidth required>
 						<InputLabel>Layer</InputLabel>
@@ -145,7 +232,7 @@ export const MarkerDialog = ({
 			</DialogContent>
 			<DialogActions>
 				<Button onClick={onClose}>Cancel</Button>
-				<Button onClick={handleSave} variant='contained' disabled={!name.trim() || !layerId}>
+				<Button onClick={handleSave} variant='contained' disabled={!name.trim() || !layerId || uploading}>
 					Save
 				</Button>
 			</DialogActions>

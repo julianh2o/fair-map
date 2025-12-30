@@ -62,6 +62,26 @@ export const layersApi = {
 	},
 };
 
+// eslint-disable-next-line no-undef
+export const uploadImage = async (file: File): Promise<string> => {
+	// eslint-disable-next-line no-undef
+	const formData = new FormData();
+	formData.append('image', file);
+
+	const response = await fetch(`${API_BASE}/upload/image`, {
+		method: 'POST',
+		body: formData,
+	});
+
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error || 'Failed to upload image');
+	}
+
+	const data = await response.json();
+	return data.url;
+};
+
 export const markersApi = {
 	getAll: async (layerId?: string): Promise<Marker[]> => {
 		const url = layerId ? `${API_BASE}/markers?layerId=${layerId}` : `${API_BASE}/markers`;

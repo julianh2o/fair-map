@@ -39,6 +39,7 @@ export const Home = () => {
 	const [previousView, setPreviousView] = useState<'layers' | 'markers'>('layers');
 	const [crosshairsTarget, setCrosshairsTarget] = useState<{ latitude: number; longitude: number } | null>(null);
 	const [selectedMarker, setSelectedMarker] = useState<MarkerWithLayerInfo | null>(null);
+	const [highlightedLabel, setHighlightedLabel] = useState<string | null>(null);
 
 	// Geolocation
 	const { position, error: locationError, loading: locationLoading } = useGeolocation();
@@ -241,10 +242,14 @@ export const Home = () => {
 		[imageOverlays],
 	);
 
-	const handleLocationClick = useCallback(() => {
-		setShowUserLocation(true);
-		setTrackingEnabled(true);
-	}, []);
+	const handleUserLocationToggle = useCallback(() => {
+		const newValue = !showUserLocation;
+		setShowUserLocation(newValue);
+		// Enable tracking and center on location when turning on
+		if (newValue) {
+			setTrackingEnabled(true);
+		}
+	}, [showUserLocation]);
 
 	const handleUploadImages = useCallback(() => {
 		setShowImageUpload(true);
@@ -294,7 +299,12 @@ export const Home = () => {
 	const handleBackFromDetails = useCallback(() => {
 		setPanelView(previousView);
 		setSelectedMarker(null);
+		setHighlightedLabel(null);
 	}, [previousView]);
+
+	const handleLabelClick = useCallback((label: string) => {
+		setHighlightedLabel((prev) => (prev === label ? null : label));
+	}, []);
 
 	const handleSaveMarkerDetails = useCallback(
 		async (id: string, data: { name: string; description: string; labels: string[]; layerId?: string }) => {
@@ -423,6 +433,7 @@ export const Home = () => {
 					crosshairsTarget={crosshairsTarget}
 					onMarkerClick={(markerId) => handleMarkerClick(markerId, false)}
 					selectedMarkerId={selectedMarker?.id || null}
+					highlightedLabel={highlightedLabel}
 					onMarkerDrag={handleMarkerDrag}
 				/>
 				{showOverlayControls && (
@@ -440,13 +451,13 @@ export const Home = () => {
 					onSetActiveLayer={setActiveLayerId}
 					imageOverlays={imageOverlays}
 					satelliteVisible={satelliteVisible}
+					showUserLocation={showUserLocation}
 					onToggleVisibility={handleToggleLayerVisibility}
 					onImageOverlayToggle={handleImageOverlayToggle}
+					onUserLocationToggle={handleUserLocationToggle}
 					onAddLayer={handleAddLayer}
 					onDeleteLayer={handleDeleteLayer}
 					onUploadImages={handleUploadImages}
-					onLocationClick={handleLocationClick}
-					locationLoading={locationLoading}
 					isOpen={isLayerManagerOpen}
 					onToggleOpen={() => setIsLayerManagerOpen(!isLayerManagerOpen)}
 					view={panelView}
@@ -462,6 +473,8 @@ export const Home = () => {
 							onBack={handleBackFromDetails}
 							onSave={handleSaveMarkerDetails}
 							onDelete={handleDeleteMarker}
+							onLabelClick={handleLabelClick}
+							highlightedLabel={highlightedLabel}
 						/>
 					}
 				/>
