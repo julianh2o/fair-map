@@ -67,7 +67,9 @@ COPY prisma.config.ts ./
 ENV DATABASE_URL="file:./data/db.db"
 
 # Install production dependencies only (this will run prisma generate via postinstall)
+# Then reinstall sharp to get the correct Linux binaries (fixes cross-platform builds)
 RUN yarn install --frozen-lockfile --production && \
+    npm rebuild sharp --platform=linux --arch=x64 && \
     yarn cache clean
 
 # Copy generated Prisma Client from builder stage
