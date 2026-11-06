@@ -27,6 +27,33 @@ export interface Marker {
 	updatedAt: string;
 }
 
+export interface Drawing {
+	id: string;
+	layerId: string;
+	kind: 'freehand' | 'line';
+	coords: string;
+	createdAt: string;
+}
+
+export const drawingsApi = {
+	getAll: async (): Promise<Drawing[]> => {
+		const response = await fetch(`${API_BASE}/drawings`);
+		if (!response.ok) throw new Error('Failed to fetch drawings');
+		return response.json();
+	},
+	create: async (data: { layerId: string; kind: Drawing['kind']; coords: number[][] }): Promise<Drawing> => {
+		const response = await fetch(`${API_BASE}/drawings`, {
+			method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+		});
+		if (!response.ok) throw new Error('Failed to create drawing');
+		return response.json();
+	},
+	delete: async (id: string): Promise<void> => {
+		const response = await fetch(`${API_BASE}/drawings/${id}`, { method: 'DELETE' });
+		if (!response.ok) throw new Error('Failed to delete drawing');
+	},
+};
+
 export const layersApi = {
 	getAll: async (): Promise<Layer[]> => {
 		const response = await fetch(`${API_BASE}/layers`);

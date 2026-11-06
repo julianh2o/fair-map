@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
+import { Box, CircularProgress, Snackbar, Alert, IconButton, Paper, Tooltip, Typography } from '@mui/material';
+import { Edit, Gesture, Timeline, AutoFixHigh, Undo, Redo, Done } from '@mui/icons-material';
 import { fromLonLat, toLonLat } from 'ol/proj';
 
 import { APP_TITLE, PAGE_TITLE_HOME } from '../utils/constants';
@@ -11,7 +12,7 @@ import { MarkerDetails } from '../components/MarkerDetails';
 import { LayerManager } from '../components/LayerManager';
 import { MarkersList } from '../components/MarkersList';
 import { ImageUpload } from '../components/ImageUpload';
-import { layersApi, markersApi, Layer, Marker } from '../services/api';
+import { layersApi, markersApi, drawingsApi, Layer, Marker, Drawing } from '../services/api';
 import { useGeolocation } from '../hooks';
 
 interface MarkerWithLayerInfo extends Omit<Marker, 'layer'> {
@@ -29,10 +30,16 @@ export const Home = () => {
 	const [imageOverlays, setImageOverlays] = useState<ImageOverlay[]>([]);
 	const [layers, setLayers] = useState<Layer[]>([]);
 	const [markers, setMarkers] = useState<Marker[]>([]);
+	const [drawings, setDrawings] = useState<Drawing[]>([]);
+	const [drawMode, setDrawMode] = useState(false);
+	const [drawTool, setDrawTool] = useState<'freehand' | 'line' | 'eraser'>('freehand');
+	const historyRef = useMemo(() => ({ undo: [] as Array<{ type: 'add' | 'erase'; drawing: Drawing }>, redo: [] as Array<{ type: 'add' | 'erase'; drawing: Drawing }> }), []);
+	const [, setHistoryVersion] = useState(0);
 	const [activeLayerId, setActiveLayerId] = useState<string>('');
 	const [markerDialogOpen, setMarkerDialogOpen] = useState(false);
 	const [markerPosition, setMarkerPosition] = useState<{ lat: number; lon: number } | null>(null);
-	const [isLayerManagerOpen, setIsLayerManagerOpen] = useState(true);
+	const [isLayerManagerOpen, setIsLayerManagerOpen] = useState(() => localStorage.getItem('fair-map-tray-open') !== 'false');
+	useEffect(() => { localStorage.setItem('fair-map-tray-open', String(isLayerManagerOpen)); }, [isLayerManagerOpen]);
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [panelView, setPanelView] = useState<'layers' | 'markers' | 'marker-details'>('layers');
@@ -102,9 +109,10 @@ export const Home = () => {
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				const [layersData, markersData] = await Promise.all([layersApi.getAll(), markersApi.getAll()]);
+				const [layersData, markersData, drawingsData] = await Promise.all([layersApi.getAll(), markersApi.getAll(), drawingsApi.getAll()]);
 				setLayers(layersData);
 				setMarkers(markersData);
+				setDrawings(drawingsData);
 
 				if (layersData.length === 0) {
 					const defaultLayer = await layersApi.create({ name: 'Default Layer', color: '#FF5733' });
@@ -188,6 +196,52 @@ export const Home = () => {
 		}
 	};
 
+	const handleDrawingCreated = useCallback(async (kind: 'freehand' | 'line', coords: number[][]) => {
+		if (!activeLayerId) return;
+		try {
+			const drawing = await drawingsApi.create({ layerId: activeLayerId, kind, coords });
+			setDrawings((current) => [...current, drawing]);
+			historyRef.undo.push({ type: 'add', drawing }); historyRef.redo = []; setHistoryVersion((version) => version + 1);
+		} catch (err) { console.error('Error saving drawing:', err); setError('Failed to save drawing'); }
+	}, [activeLayerId, historyRef]);
+
+	const handleDrawingErase = useCallback(async (id: string) => {
+		const drawing = drawings.find((item) => item.id === id);
+		if (!drawing) return;
+		try {
+			await drawingsApi.delete(id);
+			setDrawings((current) => current.filter((item) => item.id !== id));
+			historyRef.undo.push({ type: 'erase', drawing }); historyRef.redo = []; setHistoryVersion((version) => version + 1);
+		} catch (err) { console.error('Error erasing drawing:', err); setError('Failed to erase drawing'); }
+	}, [drawings, historyRef]);
+
+	const undoDrawing = useCallback(async () => {
+		const operation = historyRef.undo.pop(); if (!operation) return;
+		try {
+			if (operation.type === 'add') { await drawingsApi.delete(operation.drawing.id); setDrawings((current) => current.filter((item) => item.id !== operation.drawing.id)); }
+			else { const item = await drawingsApi.create({ layerId: operation.drawing.layerId, kind: operation.drawing.kind, coords: JSON.parse(operation.drawing.coords) }); operation.drawing = item; setDrawings((current) => [...current, item]); }
+			historyRef.redo.push(operation);
+			setHistoryVersion((version) => version + 1);
+		} catch (err) { historyRef.undo.push(operation); setError('Failed to undo drawing'); }
+	}, [historyRef]);
+	const redoDrawing = useCallback(async () => {
+		const operation = historyRef.redo.pop(); if (!operation) return;
+		try {
+			if (operation.type === 'add') { const item = await drawingsApi.create({ layerId: operation.drawing.layerId, kind: operation.drawing.kind, coords: JSON.parse(operation.drawing.coords) }); operation.drawing = item; setDrawings((current) => [...current, item]); }
+			else { await drawingsApi.delete(operation.drawing.id); setDrawings((current) => current.filter((item) => item.id !== operation.drawing.id)); }
+			historyRef.undo.push(operation);
+			setHistoryVersion((version) => version + 1);
+		} catch (err) { historyRef.redo.push(operation); setError('Failed to redo drawing'); }
+	}, [historyRef]);
+
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+			event.preventDefault(); if (event.shiftKey) void redoDrawing(); else void undoDrawing();
+		};
+		window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown);
+	}, [undoDrawing, redoDrawing]);
+
 	const handleToggleLayerVisibility = async (layerId: string, visible: boolean) => {
 		try {
 			await layersApi.update(layerId, { visible });
@@ -216,6 +270,7 @@ export const Home = () => {
 			const remainingLayers = layers.filter((l) => l.id !== layerId);
 			setLayers(remainingLayers);
 			setMarkers(markers.filter((m) => m.layerId !== layerId));
+			setDrawings((current) => current.filter((drawing) => drawing.layerId !== layerId));
 
 			// If the deleted layer was active, switch to the first remaining layer
 			if (activeLayerId === layerId && remainingLayers.length > 0) {
@@ -427,6 +482,13 @@ export const Home = () => {
 					overlayConfig={overlayConfig}
 					imageOverlays={imageOverlays}
 					markers={markersWithUpdatedLayers as MapMarker[]}
+					drawings={drawings.map((drawing) => { const layer = layers.find((item) => item.id === drawing.layerId); return { ...drawing, color: layer?.color, visible: layer?.visible }; })}
+					drawMode={drawMode}
+					drawTool={drawTool}
+					activeLayerId={activeLayerId}
+					activeLayerColor={layers.find((layer) => layer.id === activeLayerId)?.color}
+					onDrawingCreated={handleDrawingCreated}
+					onDrawingErase={handleDrawingErase}
 					userLocation={userLocation}
 					showUserLocation={showUserLocation}
 					onLongPress={handleLongPress}
@@ -436,6 +498,20 @@ export const Home = () => {
 					highlightedLabel={highlightedLabel}
 					onMarkerDrag={handleMarkerDrag}
 				/>
+				<Box sx={{ position: 'fixed', top: 'calc(env(safe-area-inset-top, 8px) + 8px)', right: 12, zIndex: 1200, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+					<Tooltip title={activeLayerId ? (drawMode ? 'Exit drawing' : 'Draw on active layer') : 'Select a layer to draw'}>
+						<span><IconButton aria-label='toggle drawing mode' disabled={!activeLayerId} onClick={() => setDrawMode((value) => !value)} sx={{ bgcolor: 'rgba(18,18,18,.92)', color: drawMode ? 'primary.light' : 'white', '&:hover': { bgcolor: 'rgba(18,18,18,.98)' } }}><Edit /></IconButton></span>
+					</Tooltip>
+					{drawMode && <Paper elevation={8} sx={{ display: 'flex', flexWrap: 'wrap', maxWidth: 210, bgcolor: 'rgba(18,18,18,.95)', p: .5 }}>
+						<Tooltip title='Freehand'><IconButton aria-label='freehand tool' color={drawTool === 'freehand' ? 'primary' : 'default'} onClick={() => setDrawTool('freehand')}><Gesture /></IconButton></Tooltip>
+						<Tooltip title='Line'><IconButton aria-label='line tool' color={drawTool === 'line' ? 'primary' : 'default'} onClick={() => setDrawTool('line')}><Timeline /></IconButton></Tooltip>
+						<Tooltip title='Eraser'><IconButton aria-label='eraser tool' color={drawTool === 'eraser' ? 'primary' : 'default'} onClick={() => setDrawTool('eraser')}><AutoFixHigh /></IconButton></Tooltip>
+						<Tooltip title='Undo'><span><IconButton aria-label='undo drawing' disabled={!historyRef.undo.length} onClick={() => void undoDrawing()}><Undo /></IconButton></span></Tooltip>
+						<Tooltip title='Redo'><span><IconButton aria-label='redo drawing' disabled={!historyRef.redo.length} onClick={() => void redoDrawing()}><Redo /></IconButton></span></Tooltip>
+						<Tooltip title='Done'><IconButton aria-label='done drawing' onClick={() => setDrawMode(false)}><Done /></IconButton></Tooltip>
+						<Typography variant='caption' sx={{ width: '100%', textAlign: 'center', color: 'text.secondary' }}>{layers.find((layer) => layer.id === activeLayerId)?.name}</Typography>
+					</Paper>}
+				</Box>
 				{showOverlayControls && (
 					<OverlayControls
 						config={overlayConfig}
