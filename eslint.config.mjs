@@ -38,6 +38,8 @@ export default [
         Event: 'readonly',
         MouseEvent: 'readonly',
         HTMLElement: 'readonly',
+        KeyboardEvent: 'readonly',
+        PointerEvent: 'readonly',
         HTMLAnchorElement: 'readonly',
         Response: 'readonly',
         PromiseRejectionEvent: 'readonly',

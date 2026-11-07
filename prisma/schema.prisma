@@ -16,6 +16,16 @@ model Layer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   markers   Marker[]
+  drawings  Drawing[]
+}
+
+model Drawing {
+  id        String   @id @default(uuid())
+  layerId   String
+  kind      String
+  coords    String
+  createdAt DateTime @default(now())
+  layer     Layer    @relation(fields: [layerId], references: [id], onDelete: Cascade)
 }
 
 model Marker {

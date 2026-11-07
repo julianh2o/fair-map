@@ -27,7 +27,10 @@ import {
 	Layers,
 	MyLocation,
 	FormatListBulleted,
+	ExpandMore,
+	ChevronLeft,
 } from '@mui/icons-material';
+import { useMediaQuery } from '@mui/material';
 
 interface Layer {
 	id: string;
@@ -91,6 +94,25 @@ export const LayerManager = ({
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 	const [newLayerName, setNewLayerName] = useState('');
 	const [newLayerColor, setNewLayerColor] = useState('#FF5733');
+	const landscape = useMediaQuery('(orientation: landscape) and (max-height: 500px)');
+	const swipeStart = React.useRef<{ x: number; y: number } | null>(null);
+	const handlePointerDown = (event: React.PointerEvent) => {
+		swipeStart.current = { x: event.clientX, y: event.clientY };
+	};
+	const handlePointerUp = (event: React.PointerEvent) => {
+		if (!swipeStart.current) return;
+		const dx = event.clientX - swipeStart.current.x;
+		const dy = event.clientY - swipeStart.current.y;
+		if (landscape && Math.abs(dx) > 40) {
+			if (dx < 0 && isOpen) handleToggleOpen();
+			else if (dx > 0 && !isOpen) handleToggleOpen();
+		}
+		if (!landscape && Math.abs(dy) > 40) {
+			if (dy > 0 && isOpen) handleToggleOpen();
+			else if (dy < 0 && !isOpen) handleToggleOpen();
+		}
+		swipeStart.current = null;
+	};
 
 	const handleToggleOpen = () => {
 		if (onToggleOpen) {
@@ -114,35 +136,62 @@ export const LayerManager = ({
 				sx={{
 					position: 'fixed',
 					// Mobile: bottom sheet
-					bottom: { xs: 0, md: 'auto' },
-					left: { xs: 0, md: 16 },
-					right: { xs: 0, md: 'auto' },
-					top: { xs: 'auto', md: 16 },
+					bottom: landscape ? 'auto' : { xs: 0, md: 'auto' },
+					left: landscape ? 'env(safe-area-inset-left, 0px)' : { xs: 0, md: 16 },
+					right: landscape ? 'auto' : { xs: 0, md: 'auto' },
+					top: landscape ? 0 : { xs: 'auto', md: 16 },
 					zIndex: 1100,
 					// Mobile: full width, Desktop: auto width based on content
-					width: { xs: '100%', md: isOpen ? 300 : 'auto' },
-					maxHeight: { xs: isOpen ? '50vh' : 'auto', sm: isOpen ? '60vh' : 'auto', md: 'calc(100vh - 120px)' },
+					width: landscape ? (isOpen ? 'min(300px, 45vw)' : 60) : { xs: '100%', md: isOpen ? 300 : 'auto' },
+					height: landscape ? (isOpen ? '100dvh' : 'auto') : 'auto',
+					maxHeight: landscape
+						? '100dvh'
+						: { xs: isOpen ? '50vh' : 'auto', sm: isOpen ? '60vh' : 'auto', md: 'calc(100vh - 120px)' },
 					overflow: isOpen ? 'auto' : 'visible',
 					background: 'rgba(18, 18, 18, 0.95)',
 					backdropFilter: 'blur(10px)',
 					// Mobile: rounded top corners, Desktop: rounded all corners
-					borderTopLeftRadius: 16,
-					borderTopRightRadius: 16,
+					borderTopLeftRadius: landscape ? 0 : 16,
+					borderTopRightRadius: landscape ? 0 : 16,
 					borderBottomLeftRadius: { xs: 0, md: 4 },
 					borderBottomRightRadius: { xs: 0, md: 4 },
-					pb: { xs: 'env(safe-area-inset-bottom, 8px)', md: 2 },
+					pb: landscape ? 0 : { xs: 'env(safe-area-inset-bottom, 8px)', md: 2 },
+					pl: 0,
 				}}>
 				{/* Navigation Tabs */}
 				<Box
 					sx={{
 						display: 'flex',
-						justifyContent: 'space-around',
 						alignItems: 'center',
-						py: 1.5,
-						px: 2,
 						minHeight: '60px',
+						flexDirection: landscape ? 'column' : 'row',
+						justifyContent: landscape ? 'flex-start' : 'space-around',
+						gap: landscape ? 1 : 0,
+						px: landscape ? 0.5 : 2,
+						py: landscape ? 1 : 1.5,
 						borderBottom: isOpen ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-					}}>
+					}}
+					onPointerDown={handlePointerDown}
+					onPointerUp={handlePointerUp}>
+					<Box
+						sx={{
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							width: landscape ? '100%' : 24,
+							height: landscape ? 24 : '100%',
+							flex: landscape ? 'none' : 'none',
+							touchAction: 'none',
+						}}>
+						<Box
+							sx={{
+								width: landscape ? 4 : 32,
+								height: landscape ? 32 : 4,
+								borderRadius: 4,
+								backgroundColor: 'rgba(255,255,255,0.35)',
+							}}
+						/>
+					</Box>
 					<IconButton
 						color={view === 'layers' ? 'primary' : 'default'}
 						aria-label='layers menu'
@@ -150,8 +199,9 @@ export const LayerManager = ({
 							if (onViewChange) {
 								onViewChange('layers');
 							}
-							if (!isOpen && onToggleOpen) {
-								onToggleOpen();
+							if (view === 'layers' && isOpen) handleToggleOpen();
+							else if (!isOpen) {
+								handleToggleOpen();
 							}
 						}}
 						sx={{
@@ -168,8 +218,9 @@ export const LayerManager = ({
 							if (onViewChange) {
 								onViewChange('markers');
 							}
-							if (!isOpen && onToggleOpen) {
-								onToggleOpen();
+							if (view === 'markers' && isOpen) handleToggleOpen();
+							else if (!isOpen) {
+								handleToggleOpen();
 							}
 						}}
 						sx={{
@@ -178,6 +229,13 @@ export const LayerManager = ({
 							},
 						}}>
 						<FormatListBulleted />
+					</IconButton>
+					<IconButton aria-label={isOpen ? 'collapse tray' : 'expand tray'} onClick={handleToggleOpen}>
+						{landscape ? (
+							<ChevronLeft sx={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(180deg)' }} />
+						) : (
+							<ExpandMore sx={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(180deg)' }} />
+						)}
 					</IconButton>
 				</Box>
 
