@@ -16,8 +16,13 @@ router.get('/', async (_req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
 	try {
 		const { layerId, kind, coords } = req.body;
-		if (typeof layerId !== 'string' || !validKinds.includes(kind) || !Array.isArray(coords) || coords.length < 2 ||
-			!coords.every((point: unknown) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite))) {
+		if (
+			typeof layerId !== 'string' ||
+			!validKinds.includes(kind) ||
+			!Array.isArray(coords) ||
+			coords.length < 2 ||
+			!coords.every((point: unknown) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite))
+		) {
 			res.status(400).json({ error: 'Valid layerId, kind, and at least two coordinate pairs are required' });
 			return;
 		}

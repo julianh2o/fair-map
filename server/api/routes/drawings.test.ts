@@ -27,17 +27,35 @@ describe('drawings API', () => {
 	});
 
 	it('rejects invalid kind or too few points', async () => {
-		const response = await request(app).post('/drawings').send({ layerId: 'l1', kind: 'circle', coords: [[1, 2]] });
+		const response = await request(app)
+			.post('/drawings')
+			.send({ layerId: 'l1', kind: 'circle', coords: [[1, 2]] });
 		expect(response.status).toBe(400);
 		expect(prisma.drawing.create).not.toHaveBeenCalled();
 	});
 
 	it('requires an existing layer and creates a drawing', async () => {
 		vi.mocked(prisma.layer.findUnique).mockResolvedValue({ id: 'l1' } as never);
-		vi.mocked(prisma.drawing.create).mockResolvedValue({ id: 'd1', layerId: 'l1', kind: 'line', coords: '[[1,2],[3,4]]' } as never);
-		const response = await request(app).post('/drawings').send({ layerId: 'l1', kind: 'line', coords: [[1, 2], [3, 4]] });
+		vi.mocked(prisma.drawing.create).mockResolvedValue({
+			id: 'd1',
+			layerId: 'l1',
+			kind: 'line',
+			coords: '[[1,2],[3,4]]',
+		} as never);
+		const response = await request(app)
+			.post('/drawings')
+			.send({
+				layerId: 'l1',
+				kind: 'line',
+				coords: [
+					[1, 2],
+					[3, 4],
+				],
+			});
 		expect(response.status).toBe(201);
-		expect(prisma.drawing.create).toHaveBeenCalledWith({ data: { layerId: 'l1', kind: 'line', coords: '[[1,2],[3,4]]' } });
+		expect(prisma.drawing.create).toHaveBeenCalledWith({
+			data: { layerId: 'l1', kind: 'line', coords: '[[1,2],[3,4]]' },
+		});
 	});
 
 	it('deletes a drawing', async () => {

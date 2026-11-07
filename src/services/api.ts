@@ -43,7 +43,9 @@ export const drawingsApi = {
 	},
 	create: async (data: { layerId: string; kind: Drawing['kind']; coords: number[][] }): Promise<Drawing> => {
 		const response = await fetch(`${API_BASE}/drawings`, {
-			method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data),
 		});
 		if (!response.ok) throw new Error('Failed to create drawing');
 		return response.json();

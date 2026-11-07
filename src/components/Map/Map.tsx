@@ -58,7 +58,14 @@ export interface UserLocation {
 	accuracy?: number;
 }
 
-export interface MapDrawing { id: string; layerId: string; kind: 'freehand' | 'line'; coords: string; color?: string; visible?: boolean; }
+export interface MapDrawing {
+	id: string;
+	layerId: string;
+	kind: 'freehand' | 'line';
+	coords: string;
+	color?: string;
+	visible?: boolean;
+}
 
 interface MapComponentProps {
 	center?: [number, number];
@@ -99,7 +106,13 @@ export const MapComponent = ({
 	selectedMarkerId = null,
 	highlightedLabel = null,
 	onMarkerDrag,
-	drawings = [], drawMode = false, drawTool = 'freehand', activeLayerId = '', activeLayerColor = '#FF5733', onDrawingCreated, onDrawingErase,
+	drawings = [],
+	drawMode = false,
+	drawTool = 'freehand',
+	activeLayerId = '',
+	activeLayerColor = '#FF5733',
+	onDrawingCreated,
+	onDrawingErase,
 }: MapComponentProps) => {
 	// eslint-disable-next-line no-undef
 	const mapRef = useRef<HTMLDivElement>(null);
@@ -112,7 +125,14 @@ export const MapComponent = ({
 	const drawingsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const drawInteractionRef = useRef<Draw | null>(null);
 	const erasedDuringGestureRef = useRef(new Set<string>());
-	const drawingPropsRef = useRef({ drawMode, drawTool, activeLayerId, activeLayerColor, onDrawingCreated, onDrawingErase });
+	const drawingPropsRef = useRef({
+		drawMode,
+		drawTool,
+		activeLayerId,
+		activeLayerColor,
+		onDrawingCreated,
+		onDrawingErase,
+	});
 	const userLocationLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const crosshairsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
 	const labelConnectionsLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
@@ -125,7 +145,9 @@ export const MapComponent = ({
 	const onMarkerDragRef = useRef(onMarkerDrag);
 	const modifyInteractionRef = useRef<Modify | null>(null);
 	const selectedMarkerIdRef = useRef(selectedMarkerId);
-	useEffect(() => { drawingPropsRef.current = { drawMode, drawTool, activeLayerId, activeLayerColor, onDrawingCreated, onDrawingErase }; }, [drawMode, drawTool, activeLayerId, activeLayerColor, onDrawingCreated, onDrawingErase]);
+	useEffect(() => {
+		drawingPropsRef.current = { drawMode, drawTool, activeLayerId, activeLayerColor, onDrawingCreated, onDrawingErase };
+	}, [drawMode, drawTool, activeLayerId, activeLayerColor, onDrawingCreated, onDrawingErase]);
 	const highlightedLabelColor = '#ff00fbff';
 
 	// Update callback refs when they change (without reinitializing the map)
@@ -237,7 +259,11 @@ export const MapComponent = ({
 		layers.push(markersLayer);
 
 		const drawingsSource = new VectorSource();
-		const drawingsLayer = new VectorLayer({ source: drawingsSource, style: (feature) => new Style({ stroke: new Stroke({ color: feature.get('color') || '#FF5733', width: 2 }) }), zIndex: 5 });
+		const drawingsLayer = new VectorLayer({
+			source: drawingsSource,
+			style: (feature) => new Style({ stroke: new Stroke({ color: feature.get('color') || '#FF5733', width: 2 }) }),
+			zIndex: 5,
+		});
 		drawingsLayerRef.current = drawingsLayer;
 		layers.push(drawingsLayer);
 
@@ -327,7 +353,9 @@ export const MapComponent = ({
 		if (onMarkerClickRef.current) {
 			const handleMapClick = (evt: any) => {
 				if (drawingPropsRef.current.drawMode) return;
-				const feature = map.forEachFeatureAtPixel(evt.pixel, (feature, layer) => layer === markersLayer ? feature : undefined);
+				const feature = map.forEachFeatureAtPixel(evt.pixel, (feature, layer) =>
+					layer === markersLayer ? feature : undefined,
+				);
 				if (feature && feature.getId()) {
 					const markerId = feature.getId() as string;
 					onMarkerClickRef.current?.(markerId);
@@ -363,7 +391,7 @@ export const MapComponent = ({
 			// Long-press handlers for touch devices
 			const handlePointerDown = (evt: Event) => {
 				// eslint-disable-next-line no-undef
-				const pointerEvt = evt as globalThis.PointerEvent;
+				const pointerEvt = evt as PointerEvent;
 				lastPointerType = pointerEvt.pointerType;
 				if (pointerEvt.pointerType === 'touch' && !drawingPropsRef.current.drawMode) {
 					const pixel = map.getEventPixel(pointerEvt);
@@ -383,7 +411,7 @@ export const MapComponent = ({
 
 			const handlePointerMove = (evt: Event) => {
 				// eslint-disable-next-line no-undef
-				const pointerEvt = evt as globalThis.PointerEvent;
+				const pointerEvt = evt as PointerEvent;
 				lastPointerType = pointerEvt.pointerType;
 				if (pointerEvt.pointerType === 'touch' && longPressTimerRef.current) {
 					clearTimeout(longPressTimerRef.current);
@@ -394,7 +422,7 @@ export const MapComponent = ({
 
 			const handlePointerUp = (evt: Event) => {
 				// eslint-disable-next-line no-undef
-				const pointerEvt = evt as globalThis.PointerEvent;
+				const pointerEvt = evt as PointerEvent;
 				lastPointerType = pointerEvt.pointerType;
 				if (pointerEvt.pointerType === 'touch' && longPressTimerRef.current) {
 					clearTimeout(longPressTimerRef.current);
@@ -407,7 +435,9 @@ export const MapComponent = ({
 			viewport.addEventListener('pointerdown', handlePointerDown);
 			viewport.addEventListener('pointermove', handlePointerMove);
 			viewport.addEventListener('pointerup', handlePointerUp);
-			const pointerTypeHandler = (event: Event) => { lastPointerType = (event as globalThis.PointerEvent).pointerType; };
+			const pointerTypeHandler = (event: Event) => {
+				lastPointerType = (event as PointerEvent).pointerType;
+			};
 			viewport.addEventListener('pointerdown', pointerTypeHandler, true);
 
 			cleanupPointerHandlers = () => {
@@ -606,19 +636,31 @@ export const MapComponent = ({
 		const source = drawingsLayerRef.current?.getSource();
 		if (!source) return;
 		source.clear();
-		drawings.filter((drawing) => drawing.visible !== false).forEach((drawing) => {
-			try {
-				const coords = JSON.parse(drawing.coords) as number[][];
-				const feature = new Feature({ geometry: new LineString(coords.map((coord) => fromLonLat(coord))), color: drawing.color });
-				feature.setId(drawing.id); feature.set('drawing', true); source.addFeature(feature);
-			} catch { /* Ignore malformed persisted drawing data. */ }
-		});
+		drawings
+			.filter((drawing) => drawing.visible !== false)
+			.forEach((drawing) => {
+				try {
+					const coords = JSON.parse(drawing.coords) as number[][];
+					const feature = new Feature({
+						geometry: new LineString(coords.map((coord) => fromLonLat(coord))),
+						color: drawing.color,
+					});
+					feature.setId(drawing.id);
+					feature.set('drawing', true);
+					source.addFeature(feature);
+				} catch {
+					/* Ignore malformed persisted drawing data. */
+				}
+			});
 	}, [drawings]);
 
 	useEffect(() => {
 		const map = mapInstanceRef.current;
 		if (!map) return;
-		if (drawInteractionRef.current) { map.removeInteraction(drawInteractionRef.current); drawInteractionRef.current = null; }
+		if (drawInteractionRef.current) {
+			map.removeInteraction(drawInteractionRef.current);
+			drawInteractionRef.current = null;
+		}
 		if (!drawMode || drawTool === 'eraser') return;
 		const interaction = new Draw({
 			source: drawingsLayerRef.current?.getSource() || undefined,
@@ -631,37 +673,56 @@ export const MapComponent = ({
 			const geometry = event.feature.getGeometry();
 			if (!geometry || geometry.getType() !== 'LineString') return;
 			const line = geometry as LineString;
-			const simplified = drawTool === 'freehand' ? line.simplify(2) as LineString : line;
+			const simplified = drawTool === 'freehand' ? (line.simplify(2) as LineString) : line;
 			const coords = simplified.getCoordinates().map((coord) => toLonLat(coord));
 			event.feature.setGeometry(simplified);
 			drawingPropsRef.current.onDrawingCreated?.(drawTool, coords);
 		});
-		map.addInteraction(interaction); drawInteractionRef.current = interaction;
-		return () => { map.removeInteraction(interaction); drawInteractionRef.current = null; };
+		map.addInteraction(interaction);
+		drawInteractionRef.current = interaction;
+		return () => {
+			map.removeInteraction(interaction);
+			drawInteractionRef.current = null;
+		};
 	}, [drawMode, drawTool, activeLayerId, activeLayerColor]);
 
 	useEffect(() => {
 		const map = mapInstanceRef.current;
 		if (!map || !drawMode || drawTool !== 'eraser') return;
 		const erase = (event: any) => {
-			map.forEachFeatureAtPixel(event.pixel, (feature, layer) => {
-				const id = feature.getId() as string;
-				if (layer === drawingsLayerRef.current && feature.get('drawing') && !erasedDuringGestureRef.current.has(id)) {
-					erasedDuringGestureRef.current.add(id);
-					drawingPropsRef.current.onDrawingErase?.(id);
-				}
-			}, { hitTolerance: 8 });
+			map.forEachFeatureAtPixel(
+				event.pixel,
+				(feature, layer) => {
+					const id = feature.getId() as string;
+					if (layer === drawingsLayerRef.current && feature.get('drawing') && !erasedDuringGestureRef.current.has(id)) {
+						erasedDuringGestureRef.current.add(id);
+						drawingPropsRef.current.onDrawingErase?.(id);
+					}
+				},
+				{ hitTolerance: 8 },
+			);
 		};
 		map.on('singleclick', erase);
 		const viewport = map.getViewport();
 		let resetTimer: ReturnType<typeof setTimeout> | null = null;
 		const startGesture = () => erasedDuringGestureRef.current.clear();
-		const endGesture = () => { if (resetTimer) clearTimeout(resetTimer); resetTimer = setTimeout(() => erasedDuringGestureRef.current.clear(), 250); };
-		const drag = (event: globalThis.PointerEvent) => { if (event.buttons) erase({ pixel: map.getEventPixel(event) }); };
+		const endGesture = () => {
+			if (resetTimer) clearTimeout(resetTimer);
+			resetTimer = setTimeout(() => erasedDuringGestureRef.current.clear(), 250);
+		};
+		const drag = (event: PointerEvent) => {
+			if (event.buttons) erase({ pixel: map.getEventPixel(event) });
+		};
 		viewport.addEventListener('pointerdown', startGesture);
 		viewport.addEventListener('pointerup', endGesture);
 		viewport.addEventListener('pointermove', drag);
-		return () => { if (resetTimer) clearTimeout(resetTimer); map.un('singleclick', erase); viewport.removeEventListener('pointerdown', startGesture); viewport.removeEventListener('pointerup', endGesture); viewport.removeEventListener('pointermove', drag); };
+		return () => {
+			if (resetTimer) clearTimeout(resetTimer);
+			map.un('singleclick', erase);
+			viewport.removeEventListener('pointerdown', startGesture);
+			viewport.removeEventListener('pointerup', endGesture);
+			viewport.removeEventListener('pointermove', drag);
+		};
 	}, [drawMode, drawTool]);
 
 	useEffect(() => {
